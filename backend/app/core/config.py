@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
 
+    # Pricing (all in cents). Tune via env without code changes.
+    price_base_cents: int = 2000  # flat dispatch fee
+    price_per_mile_cents: int = 200  # per mile
+    price_weight_surcharge_per_100lb_cents: int = 50  # per 100 lb
+    price_express_multiplier: float = 1.5
+
     model_config = {"env_file": "../.env"}
 
 

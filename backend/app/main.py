@@ -4,10 +4,12 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.databases import engine
+from app.services.storage import UPLOAD_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +37,15 @@ app.add_middleware(
 )
 
 from app.routes import auth as auth_routes
+from app.routes import loads as loads_routes
 from app.routes import me as me_routes
 
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(me_routes.router, prefix="/api/me", tags=["me"])
+app.include_router(loads_routes.router, prefix="/api/loads", tags=["loads"])
+
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_ROOT), name="uploads")
 
 
 if __name__ == "__main__":
