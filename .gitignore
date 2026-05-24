@@ -24,3 +24,9 @@ logs/*
 # Uploads
 uploads/*
 !uploads/.gitkeep
+
+# SQLite databases (dev / smoke-test artifacts)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
