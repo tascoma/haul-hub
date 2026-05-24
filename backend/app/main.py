@@ -20,7 +20,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="agent-webapp-template",
+    title="haul-hub",
     lifespan=lifespan,
 )
 
