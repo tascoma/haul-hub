@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     log_level: str = "INFO"
 
+    # JWT auth — uses secret_key as the signing key.
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+
     model_config = {"env_file": "../.env"}
 
 

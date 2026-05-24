@@ -34,9 +34,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount routers here as they are created, e.g.:
-# from app.routes import items
-# app.include_router(items.router, prefix="/api/items", tags=["items"])
+from app.routes import auth as auth_routes
+from app.routes import me as me_routes
+
+app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
+app.include_router(me_routes.router, prefix="/api/me", tags=["me"])
 
 
 if __name__ == "__main__":
