@@ -1,0 +1,26 @@
+# React / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+
+# Logs
+*.log
+logs/*
+!logs/.gitkeep
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
