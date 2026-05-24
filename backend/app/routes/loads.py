@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.databases import get_db
 from app.dependencies.auth import current_user
 from app.models.load import Load, LoadStatus
+from app.models.payment import Payment
 from app.models.user import User
 from app.schemas.load import (
     PRICE_RELEVANT_FIELDS,
@@ -15,6 +16,7 @@ from app.schemas.load import (
     LoadRead,
     LoadUpdate,
 )
+from app.schemas.payment import PaymentRead
 from app.services import booking
 from app.services.pricing import calculate_price_cents
 from app.services.storage import upload_file
@@ -222,6 +224,28 @@ async def cancel_load_route(
     await db.commit()
     await db.refresh(load)
     return load
+
+
+@router.get("/{load_id}/payment", response_model=PaymentRead)
+async def get_load_payment(
+    load_id: str,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Payment:
+    load = await db.get(Load, load_id)
+    if load is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Load not found")
+    if user.id not in {load.shipper_id, load.hauler_id}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the shipper or assigned hauler can view payment details",
+        )
+    payment = await db.scalar(
+        select(Payment).where(Payment.load_id == load_id).order_by(Payment.created_at.desc()).limit(1)
+    )
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No payment for this load")
+    return payment
 
 
 @router.post("/{load_id}/photos", response_model=LoadRead)

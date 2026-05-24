@@ -39,10 +39,12 @@ app.add_middleware(
 from app.routes import auth as auth_routes
 from app.routes import loads as loads_routes
 from app.routes import me as me_routes
+from app.routes import webhooks as webhook_routes
 
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(me_routes.router, prefix="/api/me", tags=["me"])
 app.include_router(loads_routes.router, prefix="/api/loads", tags=["loads"])
+app.include_router(webhook_routes.router, prefix="/api/webhooks", tags=["webhooks"])
 
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_ROOT), name="uploads")

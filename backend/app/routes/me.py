@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.databases import get_db
 from app.dependencies.auth import current_user
 from app.models.user import HaulerProfile, User
+from app.schemas.payment import ConnectOnboardingResponse
 from app.schemas.user import (
     HaulerProfileCreate,
     HaulerProfileRead,
@@ -11,6 +12,7 @@ from app.schemas.user import (
     MeRead,
     UserProfileUpdate,
 )
+from app.services import payments
 
 router = APIRouter()
 
@@ -60,6 +62,21 @@ async def read_hauler_profile(user: User = Depends(current_user)) -> HaulerProfi
             status_code=status.HTTP_404_NOT_FOUND, detail="Hauler profile not enabled"
         )
     return user.hauler_profile
+
+
+@router.post("/connect-onboarding", response_model=ConnectOnboardingResponse)
+async def connect_onboarding(
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ConnectOnboardingResponse:
+    if user.hauler_profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Enable hauler role before onboarding to Stripe Connect",
+        )
+    url = await payments.create_connect_onboarding_link(db, user)
+    await db.commit()
+    return ConnectOnboardingResponse(url=url)
 
 
 @router.patch("/hauler-profile", response_model=HaulerProfileRead)

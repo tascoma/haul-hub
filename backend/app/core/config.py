@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     price_weight_surcharge_per_100lb_cents: int = 50  # per 100 lb
     price_express_multiplier: float = 1.5
 
+    # Stripe Connect. When stripe_secret_key is None the payments service is in
+    # bookkeeping-only mode: Payment rows are written but no API calls are made.
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_connect_refresh_url: str = "http://localhost:5173/onboarding/refresh"
+    stripe_connect_return_url: str = "http://localhost:5173/onboarding/return"
+    platform_fee_bps: int = 1000  # 10% of haul price
+
     model_config = {"env_file": "../.env"}
 
 

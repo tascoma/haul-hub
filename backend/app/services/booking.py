@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.booking_event import BookingEvent, BookingEventType
 from app.models.load import Load, LoadStatus
 from app.models.user import User
+from app.services import payments
 
 TERMINAL_STATUSES = {LoadStatus.delivered, LoadStatus.cancelled}
 
@@ -65,6 +66,7 @@ async def accept_load(db: AsyncSession, load: Load, hauler: User) -> Load:
     load.hauler_id = hauler.id
     load.accepted_at = datetime.now(UTC)
     await _log_event(db, load, hauler, BookingEventType.accepted)
+    await payments.authorize_payment_for_load(db, load)
     return load
 
 
@@ -97,6 +99,7 @@ async def mark_delivered(db: AsyncSession, load: Load, hauler: User) -> Load:
     load.status = LoadStatus.delivered
     load.delivered_at = datetime.now(UTC)
     await _log_event(db, load, hauler, BookingEventType.delivered)
+    await payments.capture_and_transfer(db, load)
     return load
 
 
@@ -111,10 +114,13 @@ async def cancel_load(
     if not (is_shipper or is_assigned_hauler):
         raise _forbidden("Only the shipper or assigned hauler can cancel a load")
 
+    was_accepted = load.status not in {LoadStatus.draft, LoadStatus.posted}
     load.status = LoadStatus.cancelled
     load.cancelled_at = datetime.now(UTC)
     metadata = {"actor_role": "shipper" if is_shipper else "hauler"}
     if reason:
         metadata["reason"] = reason
     await _log_event(db, load, actor, BookingEventType.cancelled, metadata)
+    if was_accepted:
+        await payments.refund_on_cancel(db, load)
     return load
