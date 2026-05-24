@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.databases import get_db
 from app.dependencies.auth import current_user
+from app.models.load import Load
 from app.models.user import HaulerProfile, User
+from app.schemas.load import LoadRead
 from app.schemas.payment import ConnectOnboardingResponse
 from app.schemas.user import (
     HaulerProfileCreate,
@@ -62,6 +65,28 @@ async def read_hauler_profile(user: User = Depends(current_user)) -> HaulerProfi
             status_code=status.HTTP_404_NOT_FOUND, detail="Hauler profile not enabled"
         )
     return user.hauler_profile
+
+
+@router.get("/loads", response_model=list[LoadRead])
+async def my_loads(
+    user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
+) -> list[Load]:
+    """All loads the current user posted, in any status, newest first."""
+    result = await db.scalars(
+        select(Load).where(Load.shipper_id == user.id).order_by(Load.created_at.desc())
+    )
+    return list(result)
+
+
+@router.get("/hauls", response_model=list[LoadRead])
+async def my_hauls(
+    user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
+) -> list[Load]:
+    """All loads the current user has accepted as the hauler, in any status, newest first."""
+    result = await db.scalars(
+        select(Load).where(Load.hauler_id == user.id).order_by(Load.created_at.desc())
+    )
+    return list(result)
 
 
 @router.post("/connect-onboarding", response_model=ConnectOnboardingResponse)
