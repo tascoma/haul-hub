@@ -1,12 +1,3 @@
-from supabase import Client, create_client
+from app.databases import get_db
 
-from app.agents.agent import agent
-from app.core.config import settings
-
-
-def get_agent():
-    return agent
-
-
-def get_storage_client() -> Client:
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+__all__ = ["get_db"]
