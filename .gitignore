@@ -22,8 +22,8 @@ logs/*
 !logs/.gitkeep
 
 # Uploads
-uploads/*
-!uploads/.gitkeep
+**/uploads/*
+!**/uploads/.gitkeep
 
 # SQLite databases (dev / smoke-test artifacts)
 *.db
