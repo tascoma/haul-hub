@@ -30,3 +30,12 @@ uploads/*
 *.db-journal
 *.db-wal
 *.db-shm
+
+# iOS / Xcode
+ios/DerivedData/
+ios/build/
+ios/HaulHub.xcodeproj/xcuserdata/
+ios/HaulHub.xcodeproj/project.xcworkspace/xcuserdata/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcworkspace/xcshareddata/swiftpm/
+.DS_Store
