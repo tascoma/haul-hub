@@ -13,10 +13,18 @@ import app.models  # noqa: F401  -- side-effect: register all models on Base.met
 # access to the values within the .ini file in use.
 config = context.config
 
-# Use the app's DATABASE_URL but drop the async driver suffix —
-# Alembic uses a sync engine for migrations.
-sync_url = settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+# Alembic uses a sync DBAPI; the production DATABASE_URL is async psycopg, so
+# normalize to the sync driver here. The legacy +asyncpg driver is rewritten
+# the same way so .env values copied from older Supabase docs still work.
+sync_url = settings.database_url.replace("+asyncpg", "+psycopg")
 config.set_main_option("sqlalchemy.url", sync_url)
+
+
+def _include_object(obj, name, type_, reflected, compare_to):  # noqa: ANN001
+    """Skip PostGIS-managed tables that live in the public schema."""
+    if type_ == "table" and name == "spatial_ref_sys":
+        return False
+    return True
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -49,6 +57,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=_include_object,
     )
 
     with context.begin_transaction():
@@ -70,7 +79,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=_include_object,
         )
 
         with context.begin_transaction():

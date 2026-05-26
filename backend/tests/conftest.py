@@ -1,8 +1,10 @@
 """Shared fixtures for the backend test suite.
 
-Each test gets a fresh on-disk SQLite database so phase tests can assume an
-empty starting state (the smoke scripts these were ported from were run
-manually against a wiped DB).
+Tests run against on-disk SQLite (per-test drop_all/create_all). The production
+schema lives in Postgres + PostGIS via Supabase, but the geo-specific features
+(PostGIS `geom` columns, GIST/trigger logic) are intentionally absent from the
+ORM model so the test database can be SQLite. Postgres-only behavior is
+exercised by migrations against a live Supabase branch, not by this suite.
 """
 
 import os
