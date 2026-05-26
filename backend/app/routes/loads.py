@@ -18,8 +18,14 @@ from app.schemas.load import (
 )
 from app.schemas.payment import PaymentRead
 from app.services import booking
+from app.services.addresses import find_or_create_address
 from app.services.pricing import calculate_price_cents
+from app.services.reference_codes import generate_load_reference
 from app.services.storage import upload_file
+
+
+_PICKUP_FIELDS = {"pickup_address", "pickup_city", "pickup_state", "pickup_zip"}
+_DROPOFF_FIELDS = {"dropoff_address", "dropoff_city", "dropoff_state", "dropoff_zip"}
 
 router = APIRouter()
 
@@ -61,11 +67,30 @@ async def create_load(
         weight_lbs=payload.weight_lbs,
         urgency=payload.urgency,
     )
+
+    pickup = await find_or_create_address(
+        db,
+        line1=payload.pickup_address,
+        city=payload.pickup_city,
+        state=payload.pickup_state,
+        postal_code=payload.pickup_zip,
+    )
+    dropoff = await find_or_create_address(
+        db,
+        line1=payload.dropoff_address,
+        city=payload.dropoff_city,
+        state=payload.dropoff_state,
+        postal_code=payload.dropoff_zip,
+    )
+
     load = Load(
         shipper_id=user.id,
         photo_urls=[],
         calculated_price_cents=price,
         status=LoadStatus.posted,
+        reference_code=generate_load_reference(),
+        pickup_address_id=pickup.id,
+        dropoff_address_id=dropoff.id,
         **payload.model_dump(),
     )
     db.add(load)
@@ -119,6 +144,27 @@ async def update_load(
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(load, field, value)
+
+    # Keep the normalized address FK aligned with the flat columns the frontend
+    # still writes. Re-resolve if any pickup/dropoff field changed.
+    if updates.keys() & _PICKUP_FIELDS:
+        pickup = await find_or_create_address(
+            db,
+            line1=load.pickup_address,
+            city=load.pickup_city,
+            state=load.pickup_state,
+            postal_code=load.pickup_zip,
+        )
+        load.pickup_address_id = pickup.id
+    if updates.keys() & _DROPOFF_FIELDS:
+        dropoff = await find_or_create_address(
+            db,
+            line1=load.dropoff_address,
+            city=load.dropoff_city,
+            state=load.dropoff_state,
+            postal_code=load.dropoff_zip,
+        )
+        load.dropoff_address_id = dropoff.id
 
     if PRICE_RELEVANT_FIELDS & updates.keys():
         load.calculated_price_cents = calculate_price_cents(

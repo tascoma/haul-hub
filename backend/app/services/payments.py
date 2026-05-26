@@ -45,7 +45,7 @@ async def create_connect_onboarding_link(db: AsyncSession, user: User) -> str:
             detail="Payments are not configured on this server",
         )
 
-    if user.profile.stripe_account_id is None:
+    if user.profile.stripe_connect_account_id is None:
         account = stripe.Account.create(
             type="express",
             email=user.email,
@@ -54,11 +54,11 @@ async def create_connect_onboarding_link(db: AsyncSession, user: User) -> str:
                 "transfers": {"requested": True},
             },
         )
-        user.profile.stripe_account_id = account.id
+        user.profile.stripe_connect_account_id = account.id
         await db.flush()
 
     link = stripe.AccountLink.create(
-        account=user.profile.stripe_account_id,
+        account=user.profile.stripe_connect_account_id,
         refresh_url=settings.stripe_connect_refresh_url,
         return_url=settings.stripe_connect_return_url,
         type="account_onboarding",
@@ -120,7 +120,7 @@ async def capture_and_transfer(db: AsyncSession, load: Load) -> Payment | None:
             payment.captured_at = datetime.now(UTC)
             payment.status = PaymentStatus.captured
 
-            hauler_account_id = load.hauler.profile.stripe_account_id if load.hauler else None
+            hauler_account_id = load.hauler.profile.stripe_connect_account_id if load.hauler else None
             if hauler_account_id:
                 transfer = stripe.Transfer.create(
                     amount=payment.hauler_payout_cents,
@@ -133,7 +133,7 @@ async def capture_and_transfer(db: AsyncSession, load: Load) -> Payment | None:
                 payment.status = PaymentStatus.transferred
             else:
                 logger.warning(
-                    "hauler %s has no stripe_account_id; capture done, transfer skipped",
+                    "hauler %s has no stripe_connect_account_id; capture done, transfer skipped",
                     load.hauler_id,
                 )
         except stripe.StripeError as e:

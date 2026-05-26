@@ -13,6 +13,22 @@ const VEHICLE_TYPES: VehicleType[] = [
   "other",
 ];
 
+const VEHICLE_LABELS: Record<VehicleType, string> = {
+  pickup: "Pickup",
+  pickup_with_trailer: "Pickup + trailer",
+  flatbed: "Flatbed",
+  box_truck: "Box truck",
+  cargo_van: "Cargo van",
+  semi: "Semi",
+  other: "Other",
+};
+
+function initialsOf(value: string | null | undefined): string {
+  if (!value) return "?";
+  const parts = value.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || value[0]?.toUpperCase() || "?";
+}
+
 export function ProfilePage() {
   const { me, refresh } = useAuth();
   const [fullName, setFullName] = useState("");
@@ -93,37 +109,74 @@ export function ProfilePage() {
     }
   };
 
+  const initials = initialsOf(me.profile.full_name || me.email);
+  const verified = !!haulerProfile?.verified_at;
+
   return (
     <div>
-      <h1>Your profile</h1>
-
-      <form className="card form-grid" onSubmit={saveProfile}>
-        <h2 style={{ marginBottom: 0 }}>Account</h2>
-        <div className="muted" style={{ fontSize: "0.85rem" }}>{me.email}</div>
+      <div className="page-h">
         <div>
-          <label htmlFor="fn">Full name</label>
-          <input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <h1>Profile</h1>
+          <div className="sub">Manage your account, role, and vehicle.</div>
         </div>
-        <div>
-          <label htmlFor="ph">Phone</label>
-          <input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-        <button type="submit" className="primary" disabled={savingProfile}>
-          {savingProfile ? "Saving…" : "Save"}
-        </button>
-        {profileMsg && <div className="muted">{profileMsg}</div>}
-      </form>
+      </div>
 
-      <form className="card form-grid" onSubmit={saveHauler}>
-        <h2 style={{ marginBottom: 0 }}>
-          {me.profile.hauler_enabled ? "Hauler details" : "Become a hauler"}
-        </h2>
-        <div className="muted" style={{ fontSize: "0.85rem" }}>
-          {me.profile.hauler_enabled
-            ? "Update your vehicle and capacity."
-            : "Fill this out to start accepting loads."}
+      {/* Identity hero */}
+      <div className="card" style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <span className="hh-avatar hh-avatar--xl hh-avatar--dark">{initials}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ font: "700 20px var(--hh-font-display)", letterSpacing: "-0.015em" }}>
+            {me.profile.full_name || "Add your name"}
+          </div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+            {me.email}
+            {me.profile.phone && <> · {me.profile.phone}</>}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+            {me.profile.shipper_enabled && (
+              <span className="hh-pill hh-pill--info">Shipper</span>
+            )}
+            {me.profile.hauler_enabled && (
+              <span className="hh-pill hh-pill--accent">Hauler</span>
+            )}
+            {verified && <span className="hh-pill hh-pill--success">Verified</span>}
+          </div>
         </div>
-        <div className="form-row">
+      </div>
+
+      <div className="dashboard-cols two">
+        <form className="card form-grid" onSubmit={saveProfile}>
+          <h2>Account</h2>
+          <div>
+            <label htmlFor="fn">Full name</label>
+            <input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="ph">Phone</label>
+            <input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="actions">
+            <button type="submit" className="accent" disabled={savingProfile}>
+              {savingProfile ? "Saving…" : "Save profile"}
+            </button>
+          </div>
+          {profileMsg && <div className="muted" style={{ fontSize: 12 }}>{profileMsg}</div>}
+        </form>
+
+        <form className="card form-grid" onSubmit={saveHauler}>
+          <div className="section-h">
+            <h3>{me.profile.hauler_enabled ? "Vehicle" : "Become a hauler"}</h3>
+            {haulerProfile && (
+              <span className="hh-pill hh-pill--success">
+                {verified ? "Verified" : "Pending review"}
+              </span>
+            )}
+          </div>
+          <div className="muted" style={{ fontSize: 13 }}>
+            {me.profile.hauler_enabled
+              ? "Update your vehicle and capacity."
+              : "Fill this out to start accepting loads."}
+          </div>
           <div>
             <label htmlFor="vt">Vehicle type</label>
             <select
@@ -133,7 +186,7 @@ export function ProfilePage() {
             >
               {VEHICLE_TYPES.map((v) => (
                 <option key={v} value={v}>
-                  {v.replace(/_/g, " ")}
+                  {VEHICLE_LABELS[v]}
                 </option>
               ))}
             </select>
@@ -148,26 +201,60 @@ export function ProfilePage() {
               onChange={(e) => setMaxWeight(e.target.value)}
             />
           </div>
-        </div>
-        <div className="form-row">
-          <div>
-            <label htmlFor="mk">Vehicle make</label>
-            <input id="mk" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} />
+          <div className="form-row">
+            <div>
+              <label htmlFor="mk">Vehicle make</label>
+              <input
+                id="mk"
+                value={vehicleMake}
+                onChange={(e) => setVehicleMake(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="md">Vehicle model</label>
+              <input
+                id="md"
+                value={vehicleModel}
+                onChange={(e) => setVehicleModel(e.target.value)}
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="md">Vehicle model</label>
-            <input id="md" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} />
+          <div className="actions">
+            <button type="submit" className="primary" disabled={savingHauler}>
+              {savingHauler
+                ? "Saving…"
+                : me.profile.hauler_enabled
+                  ? "Save vehicle"
+                  : "Enable hauler role"}
+            </button>
+          </div>
+          {haulerMsg && <div className="muted" style={{ fontSize: 12 }}>{haulerMsg}</div>}
+        </form>
+      </div>
+
+      {haulerProfile && (
+        <div className="card">
+          <h3>Capacity at a glance</h3>
+          <div className="hh-stat-row" style={{ marginTop: 8 }}>
+            <div>
+              <div className="hh-stat__v">
+                {haulerProfile.max_weight_lbs?.toLocaleString() ?? "—"}
+              </div>
+              <div className="hh-stat__l">max lb</div>
+            </div>
+            <div>
+              <div className="hh-stat__v">
+                {haulerProfile.max_length_ft ?? "—"} × {haulerProfile.max_width_ft ?? "—"}
+              </div>
+              <div className="hh-stat__l">ft (L × W)</div>
+            </div>
+            <div>
+              <div className="hh-stat__v">{haulerProfile.max_height_ft ?? "—"}</div>
+              <div className="hh-stat__l">ft tall</div>
+            </div>
           </div>
         </div>
-        <button type="submit" className="primary" disabled={savingHauler}>
-          {savingHauler
-            ? "Saving…"
-            : me.profile.hauler_enabled
-              ? "Save"
-              : "Enable hauler role"}
-        </button>
-        {haulerMsg && <div className="muted">{haulerMsg}</div>}
-      </form>
+      )}
     </div>
   );
 }
