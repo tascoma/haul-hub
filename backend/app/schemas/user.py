@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from app.models.user import VehicleType
+from app.models.user import BusinessType, UserStatus
 
 
 class UserProfileRead(BaseModel):
@@ -10,19 +10,30 @@ class UserProfileRead(BaseModel):
 
     user_id: str
     full_name: str | None
+    display_name: str | None
     phone: str | None
     avatar_url: str | None
+    bio: str | None
+    preferred_language: str
+    timezone: str
     shipper_enabled: bool
     hauler_enabled: bool
-    stripe_account_id: str | None
+    marketing_opt_in: bool
+    stripe_customer_id: str | None
+    stripe_connect_account_id: str | None
     created_at: datetime
     updated_at: datetime
 
 
 class UserProfileUpdate(BaseModel):
     full_name: str | None = None
+    display_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    bio: str | None = None
+    preferred_language: str | None = None
+    timezone: str | None = None
+    marketing_opt_in: bool | None = None
 
 
 class MeRead(BaseModel):
@@ -30,49 +41,63 @@ class MeRead(BaseModel):
 
     id: str
     email: EmailStr
+    phone: str | None
+    status: UserStatus
+    email_verified_at: datetime | None
+    phone_verified_at: datetime | None
+    last_login_at: datetime | None
     profile: UserProfileRead
 
 
 class HaulerProfileCreate(BaseModel):
-    vehicle_type: VehicleType
-    vehicle_make: str | None = None
-    vehicle_model: str | None = None
-    vehicle_year: int | None = None
-    max_weight_lbs: int | None = None
-    max_length_ft: float | None = None
-    max_width_ft: float | None = None
-    max_height_ft: float | None = None
-    license_number: str | None = None
-    insurance_doc_url: str | None = None
+    """Create the operational profile only. Vehicles are managed separately via /me/vehicles."""
+
+    company_name: str | None = None
+    business_type: BusinessType | None = None
+    tax_id_last4: str | None = None
+    years_experience: int | None = None
+    bio: str | None = None
+    service_radius_miles: int = 25
+    accepts_disposal_jobs: bool = True
+    accepts_donation_runs: bool = True
+    accepts_hazardous: bool = False
 
 
 class HaulerProfileUpdate(BaseModel):
-    vehicle_type: VehicleType | None = None
-    vehicle_make: str | None = None
-    vehicle_model: str | None = None
-    vehicle_year: int | None = None
-    max_weight_lbs: int | None = None
-    max_length_ft: float | None = None
-    max_width_ft: float | None = None
-    max_height_ft: float | None = None
-    license_number: str | None = None
-    insurance_doc_url: str | None = None
+    company_name: str | None = None
+    business_type: BusinessType | None = None
+    tax_id_last4: str | None = None
+    years_experience: int | None = None
+    bio: str | None = None
+    home_base_address_id: str | None = None
+    service_radius_miles: int | None = None
+    accepts_disposal_jobs: bool | None = None
+    accepts_donation_runs: bool | None = None
+    accepts_hazardous: bool | None = None
+    currently_available: bool | None = None
+    auto_accept_under_cents: int | None = None
 
 
 class HaulerProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     user_id: str
-    vehicle_type: VehicleType
-    vehicle_make: str | None
-    vehicle_model: str | None
-    vehicle_year: int | None
-    max_weight_lbs: int | None
-    max_length_ft: float | None
-    max_width_ft: float | None
-    max_height_ft: float | None
-    license_number: str | None
-    insurance_doc_url: str | None
+    company_name: str | None
+    business_type: BusinessType | None
+    tax_id_last4: str | None
+    years_experience: int | None
+    bio: str | None
+    home_base_address_id: str | None
+    service_radius_miles: int
+    accepts_disposal_jobs: bool
+    accepts_donation_runs: bool
+    accepts_hazardous: bool
+    currently_available: bool
+    auto_accept_under_cents: int | None
+    rating_avg: float | None
+    rating_count: int
+    jobs_completed: int
     verified_at: datetime | None
+    suspended_at: datetime | None
     created_at: datetime
     updated_at: datetime

@@ -117,6 +117,9 @@ async def cancel_load(
     was_accepted = load.status not in {LoadStatus.draft, LoadStatus.posted}
     load.status = LoadStatus.cancelled
     load.cancelled_at = datetime.now(UTC)
+    load.cancelled_by_user_id = actor.id
+    if reason:
+        load.cancellation_reason = reason
     metadata = {"actor_role": "shipper" if is_shipper else "hauler"}
     if reason:
         metadata["reason"] = reason

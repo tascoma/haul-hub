@@ -41,10 +41,10 @@ async def _handle_account_updated(db: AsyncSession, account: dict) -> None:
     if account_id is None:
         return
     profile = await db.scalar(
-        select(UserProfile).where(UserProfile.stripe_account_id == account_id)
+        select(UserProfile).where(UserProfile.stripe_connect_account_id == account_id)
     )
     if profile is None:
-        logger.warning("account.updated for unknown stripe_account_id %s", account_id)
+        logger.warning("account.updated for unknown stripe_connect_account_id %s", account_id)
 
 
 async def _handle_payment_intent_succeeded(db: AsyncSession, intent: dict) -> None:

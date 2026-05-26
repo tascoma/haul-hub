@@ -44,7 +44,14 @@ async def _signup(client: AsyncClient, email: str) -> str:
 async def _enable_hauler(client: AsyncClient, headers: dict) -> None:
     r = await client.post(
         "/api/me/enable-hauler",
-        json={"vehicle_type": "pickup", "max_weight_lbs": 5000},
+        json={"service_radius_miles": 50},
+        headers=headers,
+    )
+    assert r.status_code == 201, r.text
+    # The operational profile lives separately from the truck; add a default vehicle.
+    r = await client.post(
+        "/api/me/vehicles",
+        json={"vehicle_type": "pickup", "max_payload_lbs": 5000, "is_default": True},
         headers=headers,
     )
     assert r.status_code == 201, r.text

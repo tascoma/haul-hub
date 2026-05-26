@@ -47,11 +47,12 @@ async def test_signup_login_and_profile_flow(client: AsyncClient) -> None:
     # Enable hauler
     r = await client.post(
         "/api/me/enable-hauler",
-        json={"vehicle_type": "pickup_with_trailer", "max_weight_lbs": 10000},
+        json={"company_name": "Alice Hauling LLC", "business_type": "llc", "service_radius_miles": 50},
         headers=auth,
     )
     assert r.status_code == 201, r.text
-    assert r.json()["vehicle_type"] == "pickup_with_trailer"
+    assert r.json()["company_name"] == "Alice Hauling LLC"
+    assert r.json()["business_type"] == "llc"
 
     # Now hauler-enabled
     r = await client.get("/api/me", headers=auth)
@@ -60,12 +61,22 @@ async def test_signup_login_and_profile_flow(client: AsyncClient) -> None:
     # GET hauler profile
     r = await client.get("/api/me/hauler-profile", headers=auth)
     assert r.status_code == 200, r.text
-    assert r.json()["max_weight_lbs"] == 10000
+    assert r.json()["service_radius_miles"] == 50
+
+    # Add a vehicle separately (replaces old in-profile vehicle fields)
+    r = await client.post(
+        "/api/me/vehicles",
+        json={"vehicle_type": "pickup_with_trailer", "max_payload_lbs": 10000, "is_default": True},
+        headers=auth,
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["vehicle_type"] == "pickup_with_trailer"
+    assert r.json()["max_payload_lbs"] == 10000
 
     # Enabling again
     r = await client.post(
         "/api/me/enable-hauler",
-        json={"vehicle_type": "pickup"},
+        json={"company_name": "duplicate"},
         headers=auth,
     )
     assert r.status_code == 409, r.text
