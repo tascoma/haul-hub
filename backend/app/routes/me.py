@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,9 +29,11 @@ from app.schemas.identity_verification import (
     IdentityVerificationRead,
 )
 from app.schemas.load import LoadRead
+from app.schemas.onboarding import OnboardingChecks, OnboardingStatus, OnboardingStep
 from app.schemas.payment import ConnectOnboardingResponse
 from app.schemas.service_area import ServiceAreaCreate, ServiceAreaRead
 from app.schemas.terms_acceptance import TermsAcceptanceCreate, TermsAcceptanceRead
+from app.schemas.auth import ChangePasswordRequest
 from app.schemas.user import (
     HaulerProfileCreate,
     HaulerProfileRead,
@@ -41,6 +43,8 @@ from app.schemas.user import (
 )
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
 from app.services import payments
+from app.services.auth import hash_password, verify_password
+from app.services.hauler import ensure_hauler_profile
 
 router = APIRouter()
 
@@ -65,26 +69,93 @@ async def update_me(
     return user
 
 
+@router.patch("/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+    user.password_hash = hash_password(payload.new_password)
+    await db.commit()
+
+
 # ─── Hauler profile (operational only — vehicles managed separately) ──────
 
-@router.post(
-    "/enable-hauler", response_model=HaulerProfileRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("/enable-hauler", response_model=HaulerProfileRead)
 async def enable_hauler(
     payload: HaulerProfileCreate,
+    response: Response,
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> HaulerProfile:
-    if user.hauler_profile is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Hauler profile already exists"
-        )
-    hauler = HaulerProfile(user_id=user.id, **payload.model_dump(exclude_unset=True))
-    db.add(hauler)
-    user.profile.hauler_enabled = True
+    """Idempotent. Returns 201 if a HaulerProfile was created, 200 if one already existed."""
+    hauler, created = await ensure_hauler_profile(db, user, payload)
     await db.commit()
     await db.refresh(hauler)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
     return hauler
+
+
+@router.get("/onboarding-status", response_model=OnboardingStatus)
+async def onboarding_status(
+    user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
+) -> OnboardingStatus:
+    profile_complete = bool(user.profile.full_name) and bool(user.profile.phone)
+
+    has_vehicle = False
+    has_service_area = False
+    if user.profile.hauler_enabled:
+        vehicle_count = await db.scalar(
+            select(func.count())
+            .select_from(Vehicle)
+            .where(
+                Vehicle.owner_user_id == user.id,
+                Vehicle.status != VehicleStatus.retired,
+            )
+        )
+        has_vehicle = bool(vehicle_count)
+        hp = user.hauler_profile
+        has_service_area = (
+            hp is not None
+            and hp.home_base_address_id is not None
+            and hp.service_radius_miles is not None
+        )
+
+    customer_ready = user.profile.shipper_enabled and profile_complete
+    hauler_ready = (
+        user.profile.hauler_enabled
+        and profile_complete
+        and has_vehicle
+        and has_service_area
+    )
+
+    next_step: OnboardingStep
+    if not profile_complete:
+        next_step = "profile"
+    elif user.profile.hauler_enabled and user.hauler_profile is None:
+        next_step = "hauler_profile"
+    elif user.profile.hauler_enabled and not has_vehicle:
+        next_step = "hauler_vehicle"
+    elif user.profile.hauler_enabled and not has_service_area:
+        next_step = "hauler_service_area"
+    else:
+        next_step = "done"
+
+    return OnboardingStatus(
+        profile_complete=profile_complete,
+        customer_ready=customer_ready,
+        hauler_ready=hauler_ready,
+        next_step=next_step,
+        checks=OnboardingChecks(
+            has_vehicle=has_vehicle,
+            has_service_area=has_service_area,
+        ),
+    )
 
 
 @router.get("/hauler-profile", response_model=HaulerProfileRead)
