@@ -1,17 +1,33 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var hasEntered = false
+    @EnvironmentObject private var session: AuthSession
+    @State private var showLogin = false
 
     var body: some View {
-        if hasEntered {
+        switch session.phase {
+        case .loading:
+            ProgressView()
+                .progressViewStyle(.circular)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(HHColor.ink50.ignoresSafeArea())
+
+        case .signedOut:
+            if showLogin {
+                LoginView(showLogin: $showLogin)
+            } else {
+                SignupView(showLogin: $showLogin)
+            }
+
+        case .onboarding(let step):
+            OnboardingCoordinatorView(step: step)
+
+        case .ready:
             MainTabView()
-        } else {
-            SplashView(hasEntered: $hasEntered)
         }
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView().environmentObject(AuthSession())
 }

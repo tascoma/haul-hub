@@ -6,16 +6,23 @@ enum AppRole: String, CaseIterable, Identifiable {
 }
 
 struct MainTabView: View {
+    @EnvironmentObject private var session: AuthSession
     @State private var role: AppRole = .hauler
     @State private var selectedTab: Int = 0
 
+    private var hasShipper: Bool { session.me?.profile.shipperEnabled ?? true }
+    private var hasHauler: Bool { session.me?.profile.haulerEnabled ?? false }
+    private var hasBothRoles: Bool { hasShipper && hasHauler }
+
     var body: some View {
         VStack(spacing: 0) {
-            roleSwitcher
-                .padding(.horizontal, 18)
-                .padding(.top, 8)
-                .padding(.bottom, 6)
-                .background(HHColor.paper)
+            if hasBothRoles {
+                roleSwitcher
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
+                    .background(HHColor.paper)
+            }
 
             TabView(selection: $selectedTab) {
                 Group {
@@ -38,7 +45,7 @@ struct MainTabView: View {
                             .tabItem { Image(systemName: "bell.fill"); Text("Alerts") }
                             .tag(3)
 
-                        placeholder(title: "Profile", icon: "person.fill")
+                        ProfileView()
                             .tabItem { Image(systemName: "person.fill"); Text("Profile") }
                             .tag(4)
                     } else {
@@ -59,7 +66,7 @@ struct MainTabView: View {
                             .tabItem { Image(systemName: "bell.fill"); Text("Alerts") }
                             .tag(3)
 
-                        placeholder(title: "Profile", icon: "person.fill")
+                        ProfileView()
                             .tabItem { Image(systemName: "person.fill"); Text("Profile") }
                             .tag(4)
                     }
@@ -68,6 +75,11 @@ struct MainTabView: View {
             .tint(HHColor.ink900)
         }
         .background(HHColor.ink50)
+        .onAppear {
+            // Pick the right initial role based on which flags the user has.
+            if hasHauler && !hasShipper { role = .hauler }
+            else if hasShipper && !hasHauler { role = .shipper }
+        }
     }
 
     private var roleSwitcher: some View {

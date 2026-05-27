@@ -1,12 +1,41 @@
 import SwiftUI
 
 struct LoadDetailView: View {
-    let load: Load
-    @Environment(\.dismiss) private var dismiss
-    @State private var showingClaimSheet = false
+    let load: APILoad
+    /// Called after a successful claim so the parent can refresh its list.
+    var onClaimed: (() -> Void)? = nil
 
-    var payoutCents: Int { Int(Double(load.priceCents) * 0.85) }
-    var feeCents: Int { load.priceCents - payoutCents }
+    @Environment(\.apiClient)  private var apiClient
+    @EnvironmentObject private var session: AuthSession
+    @Environment(\.dismiss)    private var dismiss
+
+    @State private var current: APILoad
+    @State private var showingClaimSheet = false
+    @State private var isClaiming = false
+    @State private var error: String?
+
+    private var client: LoadsClient { LoadsClient(api: apiClient) }
+
+    init(load: APILoad, onClaimed: (() -> Void)? = nil) {
+        self.load      = load
+        self.onClaimed = onClaimed
+        _current       = State(initialValue: load)
+    }
+
+    // MARK: - Derived
+
+    private var payoutCents: Int { current.payoutCents }
+    private var feeCents: Int    { current.calculatedPriceCents - payoutCents }
+
+    /// Can the signed-in user claim this load right now?
+    private var canClaim: Bool {
+        guard let me = session.me else { return false }
+        return current.status == .posted
+            && current.haulerId == nil
+            && current.shipperId != me.id
+    }
+
+    // MARK: - Body
 
     var body: some View {
         ScrollView {
@@ -15,26 +44,55 @@ struct LoadDetailView: View {
                 mapBlock
                 routeCard
                 statsRow
-                shipperCard
                 payoutHero
+                if let error {
+                    HHErrorBanner(message: error)
+                }
             }
             .padding(.horizontal, 18)
-            .padding(.bottom, 110)
+            .padding(.bottom, canClaim ? 120 : 32)
         }
         .background(HHColor.ink50)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            stickyCTA
+            if canClaim { stickyCTA }
         }
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .topLeading) { topBar }
         .sheet(isPresented: $showingClaimSheet) {
-            ClaimSheetView(load: load, payoutCents: payoutCents, feeCents: feeCents)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            ClaimSheetView(
+                load: current,
+                payoutCents: payoutCents,
+                feeCents: feeCents,
+                isBusy: isClaiming,
+                onConfirm: { await claimLoad() }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
-    // MARK: - Header / nav
+    // MARK: - Claim action
+
+    private func claimLoad() async {
+        isClaiming = true
+        error = nil
+        do {
+            let updated = try await client.accept(id: current.id)
+            current = updated
+            showingClaimSheet = false
+            onClaimed?()
+            dismiss()
+        } catch let err as APIError {
+            error = err.errorDescription
+            showingClaimSheet = false
+        } catch {
+            self.error = error.localizedDescription
+            showingClaimSheet = false
+        }
+        isClaiming = false
+    }
+
+    // MARK: - Top nav bar
 
     private var topBar: some View {
         HStack {
@@ -47,36 +105,28 @@ struct LoadDetailView: View {
                     .clipShape(Circle())
             }
             Spacer()
-            Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(HHColor.ink900)
-                .frame(width: 36, height: 36)
-                .background(HHColor.ink100)
-                .clipShape(Circle())
-            Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(HHColor.ink900)
-                .frame(width: 36, height: 36)
-                .background(HHColor.ink100)
-                .clipShape(Circle())
         }
         .padding(.horizontal, 18)
         .padding(.top, 8)
     }
 
+    // MARK: - Content blocks
+
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                if load.urgency == .express {
+                if current.isExpress {
                     HHPill(text: "EXPRESS", icon: "bolt.fill", style: .accent)
                 }
-                HHPill(text: VehicleLabel.describe(load.vehicleNeeds))
-                Text("\(load.postedMinAgo)m ago")
+                HHPill(text: current.status.label, style: current.status.pillStyle)
+                Text(current.postedMinAgo < 60
+                     ? "\(current.postedMinAgo)m ago"
+                     : "\(current.postedMinAgo / 60)h ago")
                     .font(.system(size: 10.5, weight: .semibold))
                     .foregroundStyle(HHColor.ink500)
             }
-            Text(load.title).font(HHFont.title)
-            if let d = load.description {
+            Text(current.title).font(HHFont.title)
+            if let d = current.description {
                 Text(d)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(HHColor.ink600)
@@ -86,7 +136,7 @@ struct LoadDetailView: View {
     }
 
     private var mapBlock: some View {
-        HHMapView(label: "\(load.pickup.city) → \(load.dropoff.city)")
+        HHMapView(label: "\(current.pickupCity) → \(current.dropoffCity)")
             .frame(height: 160)
             .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
             .overlay(
@@ -98,20 +148,26 @@ struct LoadDetailView: View {
     private var routeCard: some View {
         VStack(spacing: 12) {
             HHRouteStack(
-                from: .init(where_: "\(load.pickup.street), \(load.pickup.city)",
-                            sub: load.pickupWindow),
-                to: .init(where_: "\(load.dropoff.street), \(load.dropoff.city)",
-                          sub: load.dropoffBy)
+                from: .init(
+                    where_: "\(current.pickupAddress), \(current.pickupCity)",
+                    sub: current.pickupWindowDisplay
+                ),
+                to: .init(
+                    where_: "\(current.dropoffAddress), \(current.dropoffCity)",
+                    sub: "Deliver by \(current.dropoffByDisplay)"
+                )
             )
             Divider().background(HHColor.ink200)
             HStack {
-                Text("\(load.miles) mi · ~3h 10m drive")
+                Text("\(Int(current.estimatedDistanceMiles)) mi")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(HHColor.ink600)
                 Spacer()
-                Text("Tolls covered")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(HHColor.accentText)
+                if current.isExpress {
+                    Text("Express — priority pickup")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HHColor.accentText)
+                }
             }
         }
         .hhCard()
@@ -119,12 +175,20 @@ struct LoadDetailView: View {
 
     private var statsRow: some View {
         HStack(spacing: 1) {
-            statBox(value: "\(load.weightLbs)", label: "lb")
             statBox(
-                value: load.lengthFt.map { String(format: "%g × %g", $0, load.widthFt ?? 0) } ?? "—",
+                value: "\(current.weightLbs.formatted())",
+                label: "lb"
+            )
+            statBox(
+                value: current.lengthFt.map {
+                    String(format: "%g × %g", $0, current.widthFt ?? 0)
+                } ?? "—",
                 label: "ft (L × W)"
             )
-            statBox(value: load.heightFt.map { String(format: "%g", $0) } ?? "—", label: "ft tall")
+            statBox(
+                value: current.heightFt.map { String(format: "%g", $0) } ?? "—",
+                label: "ft tall"
+            )
         }
         .background(HHColor.ink200)
         .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
@@ -132,10 +196,13 @@ struct LoadDetailView: View {
 
     private func statBox(value: String, label: String) -> some View {
         VStack(spacing: 4) {
-            Text(value).font(HHFont.display(size: 18)).monospacedDigit()
+            Text(value)
+                .font(HHFont.display(size: 18))
+                .monospacedDigit()
                 .foregroundStyle(HHColor.ink900)
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold)).tracking(0.5)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.5)
                 .foregroundStyle(HHColor.ink500)
         }
         .frame(maxWidth: .infinity)
@@ -143,40 +210,12 @@ struct LoadDetailView: View {
         .background(HHColor.paper)
     }
 
-    private var shipperCard: some View {
-        HStack(spacing: 12) {
-            HHAvatar(initials: load.shipper.initials, size: 56)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(load.shipper.name).font(HHFont.smallBold).foregroundStyle(HHColor.ink900)
-                HStack(spacing: 6) {
-                    HStack(spacing: 2) {
-                        Image(systemName: "star.fill").font(.system(size: 11))
-                            .foregroundStyle(HHColor.accent)
-                        Text(String(format: "%.1f", load.shipper.rating))
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(HHColor.ink900)
-                    }
-                    Text("·").foregroundStyle(HHColor.ink400)
-                    Text("\(load.shipper.jobs) shipments")
-                        .font(.system(size: 12)).foregroundStyle(HHColor.ink600)
-                    Text("·").foregroundStyle(HHColor.ink400)
-                    HStack(spacing: 3) {
-                        Image(systemName: "checkmark.shield.fill").font(.system(size: 10))
-                        Text("ID verified").font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(HHColor.success)
-                }
-            }
-            Spacer()
-        }
-        .hhCard()
-    }
-
     private var payoutHero: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("YOUR PAYOUT")
-                    .font(.system(size: 11, weight: .semibold)).tracking(0.5)
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.5)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text(HHFormat.money(cents: payoutCents))
                     .font(HHFont.headlineLG)
@@ -185,10 +224,10 @@ struct LoadDetailView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text("Total \(HHFormat.moneyShort(cents: load.priceCents)) · fee \(HHFormat.moneyShort(cents: feeCents))")
+                Text("Total \(HHFormat.moneyShort(cents: current.calculatedPriceCents)) · fee \(HHFormat.moneyShort(cents: feeCents))")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.55))
-                Text("Paid 24h after delivery")
+                Text("Paid 24 h after delivery")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.55))
             }
@@ -205,12 +244,15 @@ struct LoadDetailView: View {
                 }
             }
             .buttonStyle(HHAccentButtonStyle())
+            .disabled(isClaiming)
+
             Text("You can cancel up to 30 min before pickup, free")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(HHColor.ink500)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 14).padding(.bottom, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
         .background(
             LinearGradient(
                 colors: [HHColor.ink50.opacity(0), HHColor.ink50],
@@ -220,12 +262,15 @@ struct LoadDetailView: View {
     }
 }
 
-// MARK: - Claim sheet
+// MARK: - Claim confirmation sheet
 
 struct ClaimSheetView: View {
-    let load: Load
+    let load: APILoad
     let payoutCents: Int
     let feeCents: Int
+    var isBusy: Bool = false
+    var onConfirm: (() async -> Void)? = nil
+
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -233,13 +278,15 @@ struct ClaimSheetView: View {
             ZStack {
                 Circle().fill(HHColor.accentSoft).frame(width: 56, height: 56)
                 Image(systemName: "shippingbox.fill")
-                    .font(.system(size: 24)).foregroundStyle(HHColor.accentText)
+                    .font(.system(size: 24))
+                    .foregroundStyle(HHColor.accentText)
             }
             .padding(.top, 8)
 
             Text("Claim this load?")
                 .font(HHFont.title)
                 .foregroundStyle(HHColor.ink900)
+
             Text("You'll be on the hook for pickup and delivery — confirm if you're committed.")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(HHColor.ink600)
@@ -247,30 +294,41 @@ struct ClaimSheetView: View {
                 .padding(.horizontal, 20)
 
             VStack(spacing: 4) {
-                HHRowKV(key: "Load price", value: HHFormat.money(cents: load.priceCents))
-                HHRowKV(key: "Platform fee (15%)",
-                        value: "−\(HHFormat.money(cents: feeCents))", muted: true)
-                HHRowKV(key: "Express bonus", value: "+$25.00", positive: true)
+                HHRowKV(key: "Load price",
+                        value: HHFormat.money(cents: load.calculatedPriceCents))
+                HHRowKV(key: "Platform fee (15 %)",
+                        value: "−\(HHFormat.money(cents: feeCents))",
+                        muted: true)
                 Divider().background(HHColor.ink200).padding(.vertical, 4)
                 HHRowKV(key: "Your payout",
-                        value: HHFormat.money(cents: payoutCents), big: true)
+                        value: HHFormat.money(cents: payoutCents),
+                        big: true)
             }
             .padding(14)
             .background(HHColor.ink50)
             .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
 
-            Button("Confirm claim") { dismiss() }
-                .buttonStyle(HHAccentButtonStyle())
+            Button {
+                Task { await onConfirm?() }
+            } label: {
+                if isBusy {
+                    HStack(spacing: 8) {
+                        ProgressView().tint(.white)
+                        Text("Claiming…")
+                    }
+                } else {
+                    Text("Confirm claim")
+                }
+            }
+            .buttonStyle(HHAccentButtonStyle())
+            .disabled(isBusy)
+
             Button("Not yet") { dismiss() }
                 .buttonStyle(HHGhostButtonStyle())
+                .disabled(isBusy)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 10).padding(.bottom, 30)
-    }
-}
-
-#Preview {
-    NavigationStack {
-        LoadDetailView(load: MockData.heroLoad)
+        .padding(.top, 10)
+        .padding(.bottom, 30)
     }
 }

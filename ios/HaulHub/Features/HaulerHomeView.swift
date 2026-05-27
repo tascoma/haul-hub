@@ -1,35 +1,78 @@
 import SwiftUI
 
 struct HaulerHomeView: View {
-    @State private var selectedLoad: Load?
+    @Environment(\.apiClient) private var apiClient
+    @EnvironmentObject private var session: AuthSession
+
+    @State private var loads: [APILoad] = []
+    @State private var myHauls: [APILoad] = []
+    @State private var isLoading = false
+    @State private var error: String?
+    @State private var selectedLoad: APILoad?
+
+    private var client: LoadsClient { LoadsClient(api: apiClient) }
+
+    // MARK: - Earnings helpers
+
+    private var weekEarningsCents: Int {
+        let weekAgo = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: Date()) ?? Date()
+        return myHauls
+            .filter { $0.status == .delivered && ($0.deliveredAt ?? $0.updatedAt) >= weekAgo }
+            .reduce(0) { $0 + $1.payoutCents }
+    }
+
+    private var weekTrips: Int {
+        let weekAgo = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: Date()) ?? Date()
+        return myHauls
+            .filter { $0.status == .delivered && ($0.deliveredAt ?? $0.updatedAt) >= weekAgo }
+            .count
+    }
+
+    // MARK: - Body
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    earningsStrip
-                    ForEach(Array(MockData.hauls.enumerated()), id: \.element.id) { idx, load in
-                        Button {
-                            selectedLoad = load
-                        } label: {
-                            FeedCard(load: load, featured: idx == 0)
+            Group {
+                if isLoading && loads.isEmpty {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(HHColor.ink50)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 14) {
+                            earningsStrip
+
+                            if let error {
+                                HHErrorBanner(message: error)
+                            }
+
+                            if loads.isEmpty {
+                                emptyState
+                            } else {
+                                ForEach(Array(loads.enumerated()), id: \.element.id) { idx, load in
+                                    Button { selectedLoad = load } label: {
+                                        FeedCard(load: load, featured: idx == 0)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         }
-                        .buttonStyle(.plain)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 24)
                     }
+                    .refreshable { await refresh() }
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 24)
             }
             .background(HHColor.ink50)
             .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Available")
+                        Text("Available Loads")
                             .font(HHFont.title)
                         HStack(spacing: 4) {
                             Circle().fill(HHColor.success).frame(width: 6, height: 6)
-                            Text("Online · Austin metro")
+                            Text("Online · \(loads.count) near you")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(HHColor.ink500)
                         }
@@ -37,61 +80,77 @@ struct HaulerHomeView: View {
                     .padding(.leading, 4)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 6) {
-                        circleIcon(systemName: "magnifyingglass")
-                        ZStack(alignment: .topTrailing) {
-                            circleIcon(systemName: "bell")
-                            Circle().fill(HHColor.accent).frame(width: 7, height: 7).offset(x: -8, y: 8)
-                        }
-                    }
+                    circleIcon(systemName: "arrow.clockwise") { Task { await refresh() } }
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                filterBar
-            }
+            .safeAreaInset(edge: .top, spacing: 0) { filterBar }
             .navigationDestination(item: $selectedLoad) { load in
-                LoadDetailView(load: load)
+                LoadDetailView(load: load) {
+                    // Refresh feed after a successful claim
+                    Task { await refresh() }
+                }
             }
         }
+        .task { await refresh() }
     }
 
-    private func circleIcon(systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(HHColor.ink700)
-            .frame(width: 38, height: 38)
-            .background(HHColor.ink100)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    // MARK: - Data
+
+    private func refresh() async {
+        isLoading = true
+        error = nil
+        async let availableTask = client.listAvailable()
+        async let haulsTask    = client.myHauls()
+        do {
+            let (available, hauled) = try await (availableTask, haulsTask)
+            loads   = available
+            myHauls = hauled
+        } catch let err as APIError {
+            error = err.errorDescription
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    // MARK: - Subviews
+
+    private func circleIcon(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(HHColor.ink700)
+                .frame(width: 38, height: 38)
+                .background(HHColor.ink100)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                filterChip("Within 50 mi", active: true)
-                filterChip("Box truck", active: true)
+                filterChip("All loads", active: true)
                 filterChip("Express +", active: false)
-                filterChip("$50+", active: false)
+                filterChip("$50 +", active: false)
             }
             .padding(.horizontal, 18)
-            .padding(.bottom, 10)
+            .padding(.vertical, 10)
         }
         .background(HHColor.ink50)
+        .overlay(alignment: .bottom) {
+            Divider().background(HHColor.ink200)
+        }
     }
 
     private func filterChip(_ title: String, active: Bool) -> some View {
-        HStack(spacing: 4) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-            if active {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .foregroundStyle(active ? .white : HHColor.ink700)
-        .background(active ? HHColor.ink900 : HHColor.ink100)
-        .clipShape(Capsule())
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .foregroundStyle(active ? .white : HHColor.ink700)
+            .background(active ? HHColor.ink900 : HHColor.ink100)
+            .clipShape(Capsule())
     }
 
     private var earningsStrip: some View {
@@ -101,74 +160,110 @@ struct HaulerHomeView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(HHColor.ink500)
                     .tracking(0.5)
-                Text("$874.20")
-                    .font(HHFont.display(size: 20))
+                Text(weekEarningsCents > 0
+                     ? HHFormat.money(cents: weekEarningsCents)
+                     : "$0.00")
+                    .font(HHFont.display(size: 20, weight: .bold))
                     .monospacedDigit()
+                    .foregroundStyle(HHColor.ink900)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("9 trips · 412 mi")
+                Text("\(weekTrips) trips this week")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(HHColor.ink500)
-                HStack(spacing: 4) {
-                    Image(systemName: "bolt.fill").font(.system(size: 11))
-                    Text("Express bonus active")
-                        .font(.system(size: 12, weight: .semibold))
+                let active = myHauls.filter(\.status.isActive).count
+                if active > 0 {
+                    HStack(spacing: 4) {
+                        Circle().fill(HHColor.accent).frame(width: 6, height: 6)
+                        Text("\(active) active haul\(active == 1 ? "" : "s")")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(HHColor.accentText)
                 }
-                .foregroundStyle(HHColor.accentText)
             }
         }
         .padding(12)
-        .background(HHColor.ink50)
+        .background(HHColor.paper)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(HHColor.ink200, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "tray")
+                .font(.system(size: 36))
+                .foregroundStyle(HHColor.ink400)
+            Text("No loads available")
+                .font(HHFont.titleSm)
+                .foregroundStyle(HHColor.ink900)
+            Text("Pull to refresh or check back soon.")
+                .font(.system(size: 13))
+                .foregroundStyle(HHColor.ink500)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+    }
 }
 
 // MARK: - Feed card
 
 struct FeedCard: View {
-    let load: Load
+    let load: APILoad
     var featured: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
+                    // Pills row
                     HStack(spacing: 6) {
-                        if load.urgency == .express {
+                        if load.isExpress {
                             HHPill(text: "EXPRESS", icon: "bolt.fill", style: .accent)
                         } else {
                             HHPill(text: "STANDARD")
                         }
-                        HHPill(text: VehicleLabel.describe(load.vehicleNeeds))
-                        Text("\(load.postedMinAgo)m ago")
+                        HHPill(text: load.status.label, style: load.status.pillStyle)
+                        Text(load.postedMinAgo < 60
+                             ? "\(load.postedMinAgo)m ago"
+                             : "\(load.postedMinAgo / 60)h ago")
                             .font(.system(size: 10.5, weight: .semibold))
                             .foregroundStyle(HHColor.ink500)
                     }
 
+                    // Title
                     Text(load.title)
-                        .font(.system(size: 15, weight: .semibold, design: .default))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(HHColor.ink900)
                         .lineLimit(2)
 
+                    // Route
                     HHRouteStack(
-                        from: .init(where_: "\(load.pickup.city), \(load.pickup.state)", sub: load.pickupWindow),
-                        to: .init(where_: "\(load.dropoff.city), \(load.dropoff.state)", sub: "by \(load.dropoffBy.replacingOccurrences(of: "by ", with: ""))")
+                        from: .init(
+                            where_: "\(load.pickupCity), \(load.pickupState)",
+                            sub: load.pickupWindowDisplay
+                        ),
+                        to: .init(
+                            where_: "\(load.dropoffCity), \(load.dropoffState)",
+                            sub: "by \(load.dropoffByDisplay)"
+                        )
                     )
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
+                // Price column
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(HHFormat.moneyShort(cents: load.priceCents))
+                    Text(HHFormat.moneyShort(cents: load.calculatedPriceCents))
                         .font(HHFont.headlineMD)
                         .monospacedDigit()
                         .foregroundStyle(HHColor.ink900)
-                    Text("\(load.miles) mi · \(HHFormat.weight(lb: load.weightLbs))")
+                    Text("\(Int(load.estimatedDistanceMiles)) mi · \(HHFormat.weight(lb: load.weightLbs))")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(HHColor.ink500)
                 }
@@ -185,14 +280,14 @@ struct FeedCard: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
         .shadow(
-            color: featured ? HHColor.accent.opacity(0.18) : Color.black.opacity(0.04),
-            radius: featured ? 12 : 2, x: 0, y: featured ? 6 : 1
+            color: featured ? HHColor.accent.opacity(0.15) : Color.black.opacity(0.04),
+            radius: featured ? 10 : 2, x: 0, y: featured ? 5 : 1
         )
         .overlay(alignment: .topLeading) {
             if featured {
                 HStack(spacing: 4) {
                     Image(systemName: "bolt.fill").font(.system(size: 10, weight: .bold))
-                    Text("NEW · NEAR YOU")
+                    Text("TOP MATCH")
                         .font(.system(size: 10, weight: .bold)).tracking(0.5)
                 }
                 .foregroundStyle(.white)
@@ -205,6 +300,27 @@ struct FeedCard: View {
     }
 }
 
+// MARK: - Shared error banner (used across hauler / shipper views)
+
+struct HHErrorBanner: View {
+    let message: String
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(HHColor.danger)
+            Text(message)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(HHColor.danger)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(HHColor.dangerSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
 #Preview {
     HaulerHomeView()
+        .environmentObject(AuthSession())
 }
