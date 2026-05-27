@@ -73,13 +73,14 @@ async def test_signup_login_and_profile_flow(client: AsyncClient) -> None:
     assert r.json()["vehicle_type"] == "pickup_with_trailer"
     assert r.json()["max_payload_lbs"] == 10000
 
-    # Enabling again
+    # Enabling again is idempotent — returns existing profile with 200
     r = await client.post(
         "/api/me/enable-hauler",
         json={"company_name": "duplicate"},
         headers=auth,
     )
-    assert r.status_code == 409, r.text
+    assert r.status_code == 200, r.text
+    assert r.json()["company_name"] == "Alice Hauling LLC"  # unchanged
 
 
 async def test_me_requires_valid_token(client: AsyncClient) -> None:
@@ -88,3 +89,43 @@ async def test_me_requires_valid_token(client: AsyncClient) -> None:
 
     r = await client.get("/api/me", headers={"Authorization": "Bearer not.a.token"})
     assert r.status_code == 401, r.text
+
+
+async def test_change_password(client: AsyncClient) -> None:
+    # Sign up
+    r = await client.post(
+        "/api/auth/signup",
+        json={"email": "bob@example.com", "password": "OldPass1!", "full_name": "Bob"},
+    )
+    assert r.status_code == 201, r.text
+    auth = {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+    # Wrong current password is rejected
+    r = await client.patch(
+        "/api/me/password",
+        json={"current_password": "WrongPass!", "new_password": "NewPass1!"},
+        headers=auth,
+    )
+    assert r.status_code == 400, r.text
+
+    # Correct change succeeds
+    r = await client.patch(
+        "/api/me/password",
+        json={"current_password": "OldPass1!", "new_password": "NewPass1!"},
+        headers=auth,
+    )
+    assert r.status_code == 204, r.text
+
+    # Old password no longer works
+    r = await client.post(
+        "/api/auth/login",
+        json={"email": "bob@example.com", "password": "OldPass1!"},
+    )
+    assert r.status_code == 401, r.text
+
+    # New password works
+    r = await client.post(
+        "/api/auth/login",
+        json={"email": "bob@example.com", "password": "NewPass1!"},
+    )
+    assert r.status_code == 200, r.text
