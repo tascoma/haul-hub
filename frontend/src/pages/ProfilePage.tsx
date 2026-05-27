@@ -1,27 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
-import type { HaulerProfile, VehicleType } from "../lib/types";
+import type { BusinessType, HaulerProfile } from "../lib/types";
+import { VehicleManager } from "../components/VehicleManager";
 
-const VEHICLE_TYPES: VehicleType[] = [
-  "pickup",
-  "pickup_with_trailer",
-  "flatbed",
-  "box_truck",
-  "cargo_van",
-  "semi",
-  "other",
-];
-
-const VEHICLE_LABELS: Record<VehicleType, string> = {
-  pickup: "Pickup",
-  pickup_with_trailer: "Pickup + trailer",
-  flatbed: "Flatbed",
-  box_truck: "Box truck",
-  cargo_van: "Cargo van",
-  semi: "Semi",
-  other: "Other",
-};
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 function initialsOf(value: string | null | undefined): string {
   if (!value) return "?";
@@ -29,104 +12,196 @@ function initialsOf(value: string | null | undefined): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || value[0]?.toUpperCase() || "?";
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+function useSaveStatus() {
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const start = () => { setStatus("saving"); setMsg(null); };
+  const ok    = (m = "Saved.") => { setStatus("saved"); setMsg(m); setTimeout(() => setStatus("idle"), 3000); };
+  const fail  = (e: unknown) => {
+    setStatus("error");
+    setMsg(e instanceof ApiError ? e.detail : "Save failed — please try again.");
+  };
+  return { status, msg, start, ok, fail };
+}
+
+// ─── sub-forms ───────────────────────────────────────────────────────────────
+
+const LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "pt", label: "Portuguese" },
+  { value: "zh", label: "Chinese" },
+];
+
+const TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+];
+
+const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
+  { value: "individual",   label: "Individual / sole proprietor" },
+  { value: "llc",          label: "LLC" },
+  { value: "corporation",  label: "Corporation" },
+  { value: "partnership",  label: "Partnership" },
+];
+
+// ─── main component ──────────────────────────────────────────────────────────
+
 export function ProfilePage() {
   const { me, refresh } = useAuth();
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState<string | null>(null);
 
-  const [haulerProfile, setHaulerProfile] = useState<HaulerProfile | null>(null);
-  const [vehicleType, setVehicleType] = useState<VehicleType>("pickup");
-  const [maxWeight, setMaxWeight] = useState("");
-  const [vehicleMake, setVehicleMake] = useState("");
-  const [vehicleModel, setVehicleModel] = useState("");
-  const [haulerMsg, setHaulerMsg] = useState<string | null>(null);
-  const [savingHauler, setSavingHauler] = useState(false);
+  // ── personal info state ──────────────────────────────────────────────────
+  const [fullName,    setFullName]    = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [phone,       setPhone]       = useState("");
+  const [bio,         setBio]         = useState("");
+  const personalSave = useSaveStatus();
 
+  // ── preferences state ────────────────────────────────────────────────────
+  const [language,   setLanguage]   = useState("en");
+  const [timezone,   setTimezone]   = useState("America/Los_Angeles");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const prefSave = useSaveStatus();
+
+  // ── password state ───────────────────────────────────────────────────────
+  const [currentPw,  setCurrentPw]  = useState("");
+  const [newPw,      setNewPw]      = useState("");
+  const [confirmPw,  setConfirmPw]  = useState("");
+  const pwSave = useSaveStatus();
+
+  // ── hauler state ─────────────────────────────────────────────────────────
+  const [haulerProfile,      setHaulerProfile]      = useState<HaulerProfile | null>(null);
+  const [companyName,        setCompanyName]        = useState("");
+  const [businessType,       setBusinessType]       = useState<BusinessType | "">("");
+  const [yearsExp,           setYearsExp]           = useState("");
+  const [haulerBio,          setHaulerBio]          = useState("");
+  const [serviceRadius,      setServiceRadius]      = useState("25");
+  const [acceptsDisposal,    setAcceptsDisposal]    = useState(true);
+  const [acceptsDonation,    setAcceptsDonation]    = useState(true);
+  const [acceptsHazardous,   setAcceptsHazardous]   = useState(false);
+  const [currentlyAvailable, setCurrentlyAvailable] = useState(false);
+  const haulerSave = useSaveStatus();
+
+  // ── seed form from API ───────────────────────────────────────────────────
   useEffect(() => {
     if (!me) return;
-    setFullName(me.profile.full_name ?? "");
-    setPhone(me.profile.phone ?? "");
-    if (me.profile.hauler_enabled) {
-      api
-        .get<HaulerProfile>("/me/hauler-profile")
-        .then((p) => {
-          setHaulerProfile(p);
-          setVehicleType(p.vehicle_type);
-          setMaxWeight(p.max_weight_lbs?.toString() ?? "");
-          setVehicleMake(p.vehicle_make ?? "");
-          setVehicleModel(p.vehicle_model ?? "");
+    const p = me.profile;
+    setFullName(p.full_name ?? "");
+    setDisplayName(p.display_name ?? "");
+    setPhone(p.phone ?? "");
+    setBio(p.bio ?? "");
+    setLanguage(p.preferred_language ?? "en");
+    setTimezone(p.timezone ?? "America/Los_Angeles");
+    setMarketingOptIn(p.marketing_opt_in ?? false);
+
+    if (p.hauler_enabled) {
+      api.get<HaulerProfile>("/me/hauler-profile")
+        .then((hp) => {
+          setHaulerProfile(hp);
+          setCompanyName(hp.company_name ?? "");
+          setBusinessType(hp.business_type ?? "");
+          setYearsExp(hp.years_experience?.toString() ?? "");
+          setHaulerBio(hp.bio ?? "");
+          setServiceRadius(hp.service_radius_miles?.toString() ?? "25");
+          setAcceptsDisposal(hp.accepts_disposal_jobs);
+          setAcceptsDonation(hp.accepts_donation_runs);
+          setAcceptsHazardous(hp.accepts_hazardous);
+          setCurrentlyAvailable(hp.currently_available);
         })
-        .catch(() => {
-          /* not enabled */
-        });
+        .catch(() => {/* not yet created */});
     }
   }, [me]);
 
   if (!me) return null;
 
-  const saveProfile = async (e: React.FormEvent) => {
+  const initials = initialsOf(me.profile.full_name || me.email);
+  const verified = !!haulerProfile?.verified_at;
+
+  // ── save handlers ────────────────────────────────────────────────────────
+  const savePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingProfile(true);
-    setProfileMsg(null);
-    try {
-      await api.patch("/me", { full_name: fullName, phone });
-      await refresh();
-      setProfileMsg("Profile saved.");
-    } catch (err) {
-      setProfileMsg(err instanceof ApiError ? err.detail : "Save failed");
-    } finally {
-      setSavingProfile(false);
+    if (newPw !== confirmPw) {
+      pwSave.fail(new ApiError(400, "New passwords don't match"));
+      return;
     }
+    pwSave.start();
+    try {
+      await api.patch("/me/password", { current_password: currentPw, new_password: newPw });
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+      pwSave.ok("Password changed.");
+    } catch (err) { pwSave.fail(err); }
+  };
+
+  const savePersonal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    personalSave.start();
+    try {
+      await api.patch("/me", { full_name: fullName, display_name: displayName || null, phone: phone || null, bio: bio || null });
+      await refresh();
+      personalSave.ok("Personal info saved.");
+    } catch (err) { personalSave.fail(err); }
+  };
+
+  const savePreferences = async (e: React.FormEvent) => {
+    e.preventDefault();
+    prefSave.start();
+    try {
+      await api.patch("/me", { preferred_language: language, timezone, marketing_opt_in: marketingOptIn });
+      await refresh();
+      prefSave.ok("Preferences saved.");
+    } catch (err) { prefSave.fail(err); }
   };
 
   const saveHauler = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingHauler(true);
-    setHaulerMsg(null);
+    haulerSave.start();
     const body = {
-      vehicle_type: vehicleType,
-      max_weight_lbs: maxWeight ? Number(maxWeight) : null,
-      vehicle_make: vehicleMake || null,
-      vehicle_model: vehicleModel || null,
+      company_name:        companyName || null,
+      business_type:       businessType || null,
+      years_experience:    yearsExp ? Number(yearsExp) : null,
+      bio:                 haulerBio || null,
+      service_radius_miles: Number(serviceRadius) || 25,
+      accepts_disposal_jobs: acceptsDisposal,
+      accepts_donation_runs: acceptsDonation,
+      accepts_hazardous:   acceptsHazardous,
+      currently_available: currentlyAvailable,
     };
     try {
-      if (haulerProfile) {
-        const updated = await api.patch<HaulerProfile>("/me/hauler-profile", body);
-        setHaulerProfile(updated);
-        setHaulerMsg("Hauler profile saved.");
-      } else {
-        const created = await api.post<HaulerProfile>("/me/enable-hauler", body);
-        setHaulerProfile(created);
-        await refresh();
-        setHaulerMsg("You're now set up as a hauler.");
-      }
-    } catch (err) {
-      setHaulerMsg(err instanceof ApiError ? err.detail : "Save failed");
-    } finally {
-      setSavingHauler(false);
-    }
+      const updated = await api.patch<HaulerProfile>("/me/hauler-profile", body);
+      setHaulerProfile(updated);
+      haulerSave.ok("Hauler settings saved.");
+    } catch (err) { haulerSave.fail(err); }
   };
-
-  const initials = initialsOf(me.profile.full_name || me.email);
-  const verified = !!haulerProfile?.verified_at;
 
   return (
     <div>
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
       <div className="page-h">
         <div>
           <h1>Profile</h1>
-          <div className="sub">Manage your account, role, and vehicle.</div>
+          <div className="sub">Manage your account details and preferences.</div>
         </div>
       </div>
 
-      {/* Identity hero */}
-      <div className="card" style={{ display: "flex", alignItems: "center", gap: 18 }}>
+      <div className="card" style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 24 }}>
         <span className="hh-avatar hh-avatar--xl hh-avatar--dark">{initials}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ font: "700 20px var(--hh-font-display)", letterSpacing: "-0.015em" }}>
-            {me.profile.full_name || "Add your name"}
+            {me.profile.full_name || <span className="muted">Add your name</span>}
+            {me.profile.display_name && (
+              <span className="muted" style={{ fontWeight: 400, fontSize: 15, marginLeft: 8 }}>
+                "{me.profile.display_name}"
+              </span>
+            )}
           </div>
           <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
             {me.email}
@@ -144,116 +219,325 @@ export function ProfilePage() {
         </div>
       </div>
 
-      <div className="dashboard-cols two">
-        <form className="card form-grid" onSubmit={saveProfile}>
-          <h2>Account</h2>
+      {/* ── Personal info + Preferences row ──────────────────────────── */}
+      <div className="dashboard-cols two" style={{ marginBottom: 24 }}>
+
+        {/* Personal info */}
+        <form className="card form-grid" onSubmit={savePersonal}>
+          <h2 style={{ marginTop: 0 }}>Personal info</h2>
+
           <div>
-            <label htmlFor="fn">Full name</label>
-            <input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <label htmlFor="full-name">Full name</label>
+            <input
+              id="full-name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Your legal name"
+            />
           </div>
+
           <div>
-            <label htmlFor="ph">Phone</label>
-            <input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <label htmlFor="display-name">Display name <span className="muted">(optional)</span></label>
+            <input
+              id="display-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="How you appear to others"
+            />
           </div>
+
+          <div>
+            <label htmlFor="phone">Phone number</label>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 555 000 0000"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="bio">Bio <span className="muted">(optional)</span></label>
+            <textarea
+              id="bio"
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="A short intro about yourself"
+              style={{ resize: "vertical" }}
+            />
+          </div>
+
           <div className="actions">
-            <button type="submit" className="accent" disabled={savingProfile}>
-              {savingProfile ? "Saving…" : "Save profile"}
+            <button type="submit" className="accent" disabled={personalSave.status === "saving"}>
+              {personalSave.status === "saving" ? "Saving…" : "Save personal info"}
             </button>
           </div>
-          {profileMsg && <div className="muted" style={{ fontSize: 12 }}>{profileMsg}</div>}
+          {personalSave.msg && (
+            <div
+              className="muted"
+              style={{ fontSize: 12, color: personalSave.status === "error" ? "var(--hh-danger)" : undefined }}
+            >
+              {personalSave.msg}
+            </div>
+          )}
         </form>
 
+        {/* Preferences */}
+        <form className="card form-grid" onSubmit={savePreferences}>
+          <h2 style={{ marginTop: 0 }}>Preferences</h2>
+
+          <div>
+            <label htmlFor="language">Language</label>
+            <select
+              id="language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="timezone">Timezone</label>
+            <select
+              id="timezone"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+            >
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>{tz.replace("America/", "").replace("Pacific/", "Pacific/").replace(/_/g, " ")}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, paddingTop: 4 }}>
+            <input
+              id="marketing"
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => setMarketingOptIn(e.target.checked)}
+              style={{ marginTop: 2 }}
+            />
+            <label htmlFor="marketing" style={{ cursor: "pointer", marginBottom: 0, flex: 1, minWidth: 0 }}>
+              <span style={{ fontWeight: 500 }}>Marketing emails</span>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Receive tips, load alerts, and platform news.
+              </div>
+            </label>
+          </div>
+
+          <div className="actions">
+            <button type="submit" className="primary" disabled={prefSave.status === "saving"}>
+              {prefSave.status === "saving" ? "Saving…" : "Save preferences"}
+            </button>
+          </div>
+          {prefSave.msg && (
+            <div
+              className="muted"
+              style={{ fontSize: 12, color: prefSave.status === "error" ? "var(--hh-danger)" : undefined }}
+            >
+              {prefSave.msg}
+            </div>
+          )}
+        </form>
+      </div>
+
+      {/* ── Change password ──────────────────────────────────────────── */}
+      <form className="card form-grid" onSubmit={savePassword} style={{ marginBottom: 24 }}>
+        <h2 style={{ marginTop: 0 }}>Change password</h2>
+
+        <div>
+          <label htmlFor="pw-current">Current password</label>
+          <input
+            id="pw-current"
+            type="password"
+            value={currentPw}
+            onChange={(e) => setCurrentPw(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </div>
+
+        <div className="dashboard-cols two">
+          <div>
+            <label htmlFor="pw-new">New password <span className="muted">(min 8 chars)</span></label>
+            <input
+              id="pw-new"
+              type="password"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="pw-confirm">Confirm new password</label>
+            <input
+              id="pw-confirm"
+              type="password"
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="actions">
+          <button type="submit" className="primary" disabled={pwSave.status === "saving"}>
+            {pwSave.status === "saving" ? "Saving…" : "Change password"}
+          </button>
+        </div>
+        {pwSave.msg && (
+          <div
+            className="muted"
+            style={{ fontSize: 12, color: pwSave.status === "error" ? "var(--hh-danger)" : undefined }}
+          >
+            {pwSave.msg}
+          </div>
+        )}
+      </form>
+
+      {/* ── Hauler settings (conditional) ────────────────────────────── */}
+      {me.profile.hauler_enabled && (
+        <>
         <form className="card form-grid" onSubmit={saveHauler}>
-          <div className="section-h">
-            <h3>{me.profile.hauler_enabled ? "Vehicle" : "Become a hauler"}</h3>
+          <div className="section-h" style={{ marginBottom: 4 }}>
+            <h2 style={{ marginTop: 0 }}>Hauler settings</h2>
             {haulerProfile && (
-              <span className="hh-pill hh-pill--success">
+              <span className={`hh-pill ${verified ? "hh-pill--success" : "hh-pill--warning"}`}>
                 {verified ? "Verified" : "Pending review"}
               </span>
             )}
           </div>
-          <div className="muted" style={{ fontSize: 13 }}>
-            {me.profile.hauler_enabled
-              ? "Update your vehicle and capacity."
-              : "Fill this out to start accepting loads."}
+
+          <div className="dashboard-cols two">
+            <div>
+              <label htmlFor="company-name">Company name <span className="muted">(optional)</span></label>
+              <input
+                id="company-name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Your business name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="business-type">Business type</label>
+              <select
+                id="business-type"
+                value={businessType}
+                onChange={(e) => setBusinessType(e.target.value as BusinessType | "")}
+              >
+                <option value="">— select —</option>
+                {BUSINESS_TYPES.map((bt) => (
+                  <option key={bt.value} value={bt.value}>{bt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="years-exp">Years of experience</label>
+              <input
+                id="years-exp"
+                type="number"
+                min={0}
+                max={60}
+                value={yearsExp}
+                onChange={(e) => setYearsExp(e.target.value)}
+                placeholder="e.g. 5"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="service-radius">Service radius (miles)</label>
+              <input
+                id="service-radius"
+                type="number"
+                min={1}
+                max={500}
+                value={serviceRadius}
+                onChange={(e) => setServiceRadius(e.target.value)}
+              />
+            </div>
           </div>
+
           <div>
-            <label htmlFor="vt">Vehicle type</label>
-            <select
-              id="vt"
-              value={vehicleType}
-              onChange={(e) => setVehicleType(e.target.value as VehicleType)}
-            >
-              {VEHICLE_TYPES.map((v) => (
-                <option key={v} value={v}>
-                  {VEHICLE_LABELS[v]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="mw">Max weight (lbs)</label>
-            <input
-              id="mw"
-              type="number"
-              min={0}
-              value={maxWeight}
-              onChange={(e) => setMaxWeight(e.target.value)}
+            <label htmlFor="hauler-bio">Hauler bio <span className="muted">(optional)</span></label>
+            <textarea
+              id="hauler-bio"
+              rows={3}
+              value={haulerBio}
+              onChange={(e) => setHaulerBio(e.target.value)}
+              placeholder="Tell shippers about your experience and equipment"
+              style={{ resize: "vertical" }}
             />
           </div>
-          <div className="form-row">
-            <div>
-              <label htmlFor="mk">Vehicle make</label>
-              <input
-                id="mk"
-                value={vehicleMake}
-                onChange={(e) => setVehicleMake(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="md">Vehicle model</label>
-              <input
-                id="md"
-                value={vehicleModel}
-                onChange={(e) => setVehicleModel(e.target.value)}
-              />
+
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Job preferences</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { id: "disposal", checked: acceptsDisposal, onChange: setAcceptsDisposal, label: "Disposal jobs", desc: "Haul items to a dump, recycling center, or landfill." },
+                { id: "donation", checked: acceptsDonation, onChange: setAcceptsDonation, label: "Donation runs", desc: "Transport items to Goodwill, Habitat ReStores, or similar." },
+                { id: "hazardous", checked: acceptsHazardous, onChange: setAcceptsHazardous, label: "Hazardous materials", desc: "Loads flagged as containing potentially hazardous items." },
+              ].map(({ id, checked, onChange, label, desc }) => (
+                <div key={id} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <input
+                    id={id}
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked)}
+                    style={{ marginTop: 2 }}
+                  />
+                  <label htmlFor={id} style={{ cursor: "pointer", marginBottom: 0, flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 500 }}>{label}</span>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{desc}</div>
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
+
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, paddingTop: 4 }}>
+            <input
+              id="available"
+              type="checkbox"
+              checked={currentlyAvailable}
+              onChange={(e) => setCurrentlyAvailable(e.target.checked)}
+              style={{ marginTop: 2 }}
+            />
+            <label htmlFor="available" style={{ cursor: "pointer", marginBottom: 0, flex: 1, minWidth: 0 }}>
+              <span style={{ fontWeight: 500 }}>Currently available</span>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Shippers can see you as available for new loads right now.
+              </div>
+            </label>
+          </div>
+
           <div className="actions">
-            <button type="submit" className="primary" disabled={savingHauler}>
-              {savingHauler
-                ? "Saving…"
-                : me.profile.hauler_enabled
-                  ? "Save vehicle"
-                  : "Enable hauler role"}
+            <button type="submit" className="accent" disabled={haulerSave.status === "saving"}>
+              {haulerSave.status === "saving" ? "Saving…" : "Save hauler settings"}
             </button>
           </div>
-          {haulerMsg && <div className="muted" style={{ fontSize: 12 }}>{haulerMsg}</div>}
+          {haulerSave.msg && (
+            <div
+              className="muted"
+              style={{ fontSize: 12, color: haulerSave.status === "error" ? "var(--hh-danger)" : undefined }}
+            >
+              {haulerSave.msg}
+            </div>
+          )}
         </form>
-      </div>
 
-      {haulerProfile && (
-        <div className="card">
-          <h3>Capacity at a glance</h3>
-          <div className="hh-stat-row" style={{ marginTop: 8 }}>
-            <div>
-              <div className="hh-stat__v">
-                {haulerProfile.max_weight_lbs?.toLocaleString() ?? "—"}
-              </div>
-              <div className="hh-stat__l">max lb</div>
-            </div>
-            <div>
-              <div className="hh-stat__v">
-                {haulerProfile.max_length_ft ?? "—"} × {haulerProfile.max_width_ft ?? "—"}
-              </div>
-              <div className="hh-stat__l">ft (L × W)</div>
-            </div>
-            <div>
-              <div className="hh-stat__v">{haulerProfile.max_height_ft ?? "—"}</div>
-              <div className="hh-stat__l">ft tall</div>
-            </div>
-          </div>
-        </div>
+        {/* Vehicles */}
+        <VehicleManager />
+        </>
       )}
     </div>
   );

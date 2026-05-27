@@ -45,7 +45,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+  const from = (location.state as { from?: string } | null)?.from ?? "/onboarding";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
