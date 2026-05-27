@@ -29,6 +29,7 @@
 		BC96B6AB643C09FF570090AC /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62AF806C9110046DEB31AC45 /* MockData.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* LoadModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E2D3C4B5A6978869504132 /* LoadModels.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* LoadsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D3C4B5A69788695041321F /* LoadsClient.swift */; };
+		A1A1A1A1A1A1A1A1A1A1A1A1 /* RouteDistance.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B2B2B2 /* RouteDistance.swift */; };
 		BFF99F8280573507843DCCA0 /* OnboardingCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F1225BC086F9365AA9A078 /* OnboardingCoordinatorView.swift */; };
 		C74DE3E8E897A332F0255102 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2AEE9A3C707F6CABE98DD2F /* LoginView.swift */; };
 		D96A96CA310B1DB04111E4D6 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B7CB93C111BB06D1560DE3 /* KeychainStore.swift */; };
@@ -36,6 +37,9 @@
 		E5E07A27378C17CDCC5213D7 /* HHTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14FCFDA68C7A5E6A1CAE6C55 /* HHTheme.swift */; };
 		E768DE30A512B54F0BB1E841 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = F99B9CFF3BDD75314E7464EC /* Config.swift */; };
 		EBF4D598ABB45136FDCFEF4C /* HaulerProfileOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A454AB1A5C97C1F06BA5BB94 /* HaulerProfileOnboardingView.swift */; };
+		A1A1A1A1A1A1A1A1A1A10001 /* PostLoadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10002 /* PostLoadView.swift */; };
+		A1A1A1A1A1A1A1A1A1A10003 /* ShipperTrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10004 /* ShipperTrackingView.swift */; };
+		A1A1A1A1A1A1A1A1A1A10005 /* ShipperLoadDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10006 /* ShipperLoadDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,6 +67,7 @@
 		62AF806C9110046DEB31AC45 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
 		F1E2D3C4B5A6978869504132 /* LoadModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadModels.swift; sourceTree = "<group>"; };
 		E2D3C4B5A69788695041321F /* LoadsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadsClient.swift; sourceTree = "<group>"; };
+		B2B2B2B2B2B2B2B2B2B2B2B2 /* RouteDistance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDistance.swift; sourceTree = "<group>"; };
 		65A16820FCFC18661C987AA3 /* HaulerHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HaulerHomeView.swift; sourceTree = "<group>"; };
 		E1F0A1B2C3D4E5F6A7B8C9D0 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		69F1225BC086F9365AA9A078 /* OnboardingCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinatorView.swift; sourceTree = "<group>"; };
@@ -70,6 +75,9 @@
 		713A41A51DAD4E9423D43E91 /* HHComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HHComponents.swift; sourceTree = "<group>"; };
 		7245A8594E29DEC2B5DA52AB /* AuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
 		767E4412CF8FF7873591F6A2 /* ActiveHaulView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveHaulView.swift; sourceTree = "<group>"; };
+		A1A1A1A1A1A1A1A1A1A10002 /* PostLoadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostLoadView.swift; sourceTree = "<group>"; };
+		A1A1A1A1A1A1A1A1A1A10004 /* ShipperTrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShipperTrackingView.swift; sourceTree = "<group>"; };
+		A1A1A1A1A1A1A1A1A1A10006 /* ShipperLoadDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShipperLoadDetailView.swift; sourceTree = "<group>"; };
 		8FF59725C3B9916E4AFEB7BC /* AuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthClient.swift; sourceTree = "<group>"; };
 		A454AB1A5C97C1F06BA5BB94 /* HaulerProfileOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HaulerProfileOnboardingView.swift; sourceTree = "<group>"; };
 		A474141D1DCD1B446B3CACEB /* HaulHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HaulHubTests.swift; sourceTree = "<group>"; };
@@ -108,8 +116,11 @@
 				65A16820FCFC18661C987AA3 /* HaulerHomeView.swift */,
 				5B4E88C459D58639C2FB7296 /* LoadDetailView.swift */,
 				A71F8C969EBA0177CB46226B /* MainTabView.swift */,
+				A1A1A1A1A1A1A1A1A1A10002 /* PostLoadView.swift */,
 				E1F0A1B2C3D4E5F6A7B8C9D0 /* ProfileView.swift */,
 				303D15D6B986C15664D788CA /* ShipperHomeView.swift */,
+				A1A1A1A1A1A1A1A1A1A10006 /* ShipperLoadDetailView.swift */,
+				A1A1A1A1A1A1A1A1A1A10004 /* ShipperTrackingView.swift */,
 				DF5644AE713A8D9914C0EF6F /* SplashView.swift */,
 				A217D844AB9785710AEFB71B /* Auth */,
 				E8B3AE4C86EBE4C53A01CACD /* Onboarding */,
@@ -180,6 +191,7 @@
 				14FCFDA68C7A5E6A1CAE6C55 /* HHTheme.swift */,
 				50B7CB93C111BB06D1560DE3 /* KeychainStore.swift */,
 				E2D3C4B5A69788695041321F /* LoadsClient.swift */,
+				B2B2B2B2B2B2B2B2B2B2B2B2 /* RouteDistance.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -286,8 +298,12 @@
 				DD2925467C89A7092A23A437 /* LoadDetailView.swift in Sources */,
 				C74DE3E8E897A332F0255102 /* LoginView.swift in Sources */,
 				6E35B105006F05105351E7EC /* MainTabView.swift in Sources */,
+				A1A1A1A1A1A1A1A1A1A10001 /* PostLoadView.swift in Sources */,
+				A1A1A1A1A1A1A1A1A1A10003 /* ShipperTrackingView.swift in Sources */,
+				A1A1A1A1A1A1A1A1A1A10005 /* ShipperLoadDetailView.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* LoadModels.swift in Sources */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* LoadsClient.swift in Sources */,
+				A1A1A1A1A1A1A1A1A1A1A1A1 /* RouteDistance.swift in Sources */,
 				BC96B6AB643C09FF570090AC /* MockData.swift in Sources */,
 				BFF99F8280573507843DCCA0 /* OnboardingCoordinatorView.swift in Sources */,
 				B25ADADBB6DC9DD16DE0767F /* ProfileOnboardingView.swift in Sources */,

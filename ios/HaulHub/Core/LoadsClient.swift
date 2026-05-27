@@ -32,6 +32,16 @@ struct LoadsClient {
         try await api.get("/api/loads/\(id)")
     }
 
+    /// Create a new load as shipper. Mirrors POST /api/loads.
+    func createLoad(_ body: CreateLoadRequest) async throws -> APILoad {
+        try await api.post("/api/loads", body: body)
+    }
+
+    /// Booking-event timeline for a load (shipper or assigned hauler).
+    func events(id: String) async throws -> [APIBookingEvent] {
+        try await api.get("/api/loads/\(id)/events")
+    }
+
     // MARK: - My data
 
     /// Loads the current user has claimed as hauler (all statuses).

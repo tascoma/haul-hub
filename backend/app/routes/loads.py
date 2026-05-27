@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.databases import get_db
 from app.dependencies.auth import current_user
+from app.models.booking_event import BookingEvent
 from app.models.load import Load, LoadStatus
 from app.models.payment import Payment
 from app.models.user import User
+from app.schemas.booking_event import BookingEventRead
 from app.schemas.load import (
     PRICE_RELEVANT_FIELDS,
     CancelRequest,
@@ -292,6 +294,28 @@ async def get_load_payment(
     if payment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No payment for this load")
     return payment
+
+
+@router.get("/{load_id}/events", response_model=list[BookingEventRead])
+async def get_load_events(
+    load_id: str,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[BookingEvent]:
+    load = await db.get(Load, load_id)
+    if load is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Load not found")
+    if user.id not in {load.shipper_id, load.hauler_id}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the shipper or assigned hauler can view the event timeline",
+        )
+    events = await db.scalars(
+        select(BookingEvent)
+        .where(BookingEvent.load_id == load_id)
+        .order_by(BookingEvent.created_at.asc())
+    )
+    return list(events)
 
 
 @router.post("/{load_id}/photos", response_model=LoadRead)

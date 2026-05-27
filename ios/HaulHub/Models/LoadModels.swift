@@ -123,3 +123,79 @@ struct APILoad: Decodable, Identifiable, Hashable {
     static func == (lhs: APILoad, rhs: APILoad) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
+
+// MARK: - Create load request (mirrors backend LoadCreate; web PostLoadPage fields)
+
+/// Body for POST /api/loads. Property names are camelCase; APIClient converts
+/// to snake_case and encodes Dates as ISO-8601 UTC. Nil optionals are omitted,
+/// letting the backend apply its defaults.
+struct CreateLoadRequest: Encodable {
+    let title: String
+    let description: String?
+    let weightLbs: Int
+    let lengthFt: Double?
+    let widthFt: Double?
+    let heightFt: Double?
+    let pickupAddress: String
+    let pickupCity: String
+    let pickupState: String
+    let pickupZip: String
+    let pickupWindowStart: Date
+    let pickupWindowEnd: Date
+    let dropoffAddress: String
+    let dropoffCity: String
+    let dropoffState: String
+    let dropoffZip: String
+    let dropoffBy: Date
+    let estimatedDistanceMiles: Double
+    let urgency: Urgency
+}
+
+extension Urgency: Encodable {}
+
+// MARK: - Booking event (mirrors backend BookingEventRead schema)
+
+enum BookingEventType: String, Decodable, Hashable {
+    case accepted
+    case pickedUp  = "picked_up"
+    case inTransit = "in_transit"
+    case delivered
+    case cancelled
+
+    var label: String {
+        switch self {
+        case .accepted:  return "Hauler claimed the load"
+        case .pickedUp:  return "Picked up"
+        case .inTransit: return "In transit"
+        case .delivered: return "Delivered"
+        case .cancelled: return "Cancelled"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .accepted:  return "checkmark.seal.fill"
+        case .pickedUp:  return "shippingbox.fill"
+        case .inTransit: return "truck.box.fill"
+        case .delivered: return "flag.checkered"
+        case .cancelled: return "xmark.circle.fill"
+        }
+    }
+}
+
+struct APIBookingEvent: Decodable, Identifiable, Hashable {
+    let id: String
+    let loadId: String
+    let eventType: BookingEventType
+    let actorUserId: String
+    let createdAt: Date
+
+    var createdAtDisplay: String {
+        let df = DateFormatter()
+        df.dateFormat = "MMM d, h:mm a"
+        return df.string(from: createdAt)
+    }
+
+    static func == (lhs: APIBookingEvent, rhs: APIBookingEvent) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
