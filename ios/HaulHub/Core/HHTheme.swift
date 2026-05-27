@@ -145,13 +145,24 @@ struct HHPill: View {
 struct HHAccentButtonStyle: ButtonStyle {
     var height: CGFloat = 52
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .background(configuration.isPressed ? HHColor.accentHover : HHColor.accent)
-            .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
+        Label(configuration: configuration, height: height)
+    }
+
+    private struct Label: View {
+        let configuration: Configuration
+        let height: CGFloat
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: height)
+                .background(configuration.isPressed ? HHColor.accentHover : HHColor.accent)
+                .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
+                .opacity(isEnabled ? 1 : 0.4)
+        }
     }
 }
 
