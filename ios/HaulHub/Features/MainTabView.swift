@@ -54,11 +54,11 @@ struct MainTabView: View {
                             Text("Home")
                         }.tag(0)
 
-                        placeholder(title: "Post a load", icon: "plus.circle.fill")
+                        PostLoadView()
                             .tabItem { Image(systemName: "plus.circle.fill"); Text("Post") }
                             .tag(1)
 
-                        placeholder(title: "Tracking", icon: "truck.box.fill")
+                        ShipperTrackingView()
                             .tabItem { Image(systemName: "truck.box.fill"); Text("Tracking") }
                             .tag(2)
 
