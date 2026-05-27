@@ -157,7 +157,7 @@ export function BrowseLoadsPage() {
             return (
               <Link
                 key={l.id}
-                to={`/loads/${l.id}`}
+                to={`/hauler/loads/${l.id}`}
                 className={`loads-table-row ${featured ? "featured" : ""}`}
                 style={{ color: "inherit", textDecoration: "none", display: "grid" }}
               >
