@@ -24,6 +24,29 @@ All accounts use password: **`Password1!`**
 
 ---
 
+## Northwest Arkansas (manually seeded)
+
+Added directly to the `hh` Supabase DB for the load-maps work. Same password
+(`Password1!`) as the rest; these use the `479` area code and the
+`America/Chicago` timezone. Each shipper has a default-pickup "Home" address.
+
+### Shippers
+
+| Name | Email | Phone | City |
+|---|---|---|---|
+| Grace Whitman | grace.shipper@example.com | +1 (479) 555-0101 | Bentonville, AR |
+| Marcus Reed | marcus.shipper@example.com | +1 (479) 555-0102 | Rogers, AR |
+| Priya Anand | priya.shipper@example.com | +1 (479) 555-0103 | Fayetteville, AR |
+| Derek Olsen | derek.shipper@example.com | +1 (479) 555-0104 | Springdale, AR |
+
+### Haulers
+
+| Name | Email | Phone | Company | Home base | Vehicle | Rating | Jobs |
+|---|---|---|---|---|---|---|---|
+| Hank Caldwell | hank.hauler@example.com | +1 (479) 555-0301 | Ozark Haul Co (LLC), 50-mi radius | Bentonville, AR | 2021 Ford F-250 (pickup w/ trailer) | ⭐ 4.8 (37 reviews) | 52 |
+
+---
+
 ## Load snapshot
 
 | Status | Count | Who's involved |
