@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { Load } from "../lib/types";
 import { formatPrice } from "../lib/format";
+import { PickupsMap } from "../components/PickupsMap";
 
 function formatPickupShort(iso: string): { date: string; time: string } {
   const d = new Date(iso);
@@ -13,30 +14,23 @@ function formatPickupShort(iso: string): { date: string; time: string } {
 }
 
 export function BrowseLoadsPage() {
+  const navigate = useNavigate();
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [city, setCity] = useState("");
-  const [stateAbbr, setStateAbbr] = useState("");
   const [search, setSearch] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState<"all" | "express" | "standard">("all");
+  const [nearMe, setNearMe] = useState(true);
 
-  const fetchLoads = (cityFilter: string, stateFilter: string) => {
+  useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (cityFilter) params.set("city", cityFilter);
-    if (stateFilter) params.set("state", stateFilter);
-    const qs = params.toString();
+    setError(null);
     api
-      .get<Load[]>(`/loads${qs ? `?${qs}` : ""}`)
+      .get<Load[]>(`/loads${nearMe ? "?near_me=true" : ""}`)
       .then(setLoads)
       .catch((err) => setError(err instanceof ApiError ? err.detail : "Failed to load"))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchLoads("", "");
-  }, []);
+  }, [nearMe]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -50,19 +44,6 @@ export function BrowseLoadsPage() {
       );
     });
   }, [loads, search, urgencyFilter]);
-
-  const onFilter = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchLoads(city, stateAbbr);
-  };
-
-  const clear = () => {
-    setCity("");
-    setStateAbbr("");
-    setSearch("");
-    setUrgencyFilter("all");
-    fetchLoads("", "");
-  };
 
   return (
     <div>
@@ -102,101 +83,72 @@ export function BrowseLoadsPage() {
         >
           Standard
         </span>
+        <span style={{ flex: 1 }} />
+        <span
+          className={`filter-chip ${nearMe ? "active" : ""}`}
+          onClick={() => setNearMe((v) => !v)}
+          title="Show only loads within your service radius"
+        >
+          📍 In my radius
+        </span>
       </div>
-
-      <form
-        className="card form-grid"
-        onSubmit={onFilter}
-        style={{ marginBottom: 18 }}
-      >
-        <div className="section-h">
-          <h3>Pickup location</h3>
-        </div>
-        <div className="form-row">
-          <div>
-            <label htmlFor="fcity">City</label>
-            <input id="fcity" value={city} onChange={(e) => setCity(e.target.value)} />
-          </div>
-          <div>
-            <label htmlFor="fstate">State</label>
-            <input
-              id="fstate"
-              maxLength={2}
-              value={stateAbbr}
-              onChange={(e) => setStateAbbr(e.target.value.toUpperCase())}
-            />
-          </div>
-        </div>
-        <div className="actions">
-          <button type="submit" className="primary">
-            Apply filters
-          </button>
-          <button type="button" className="secondary" onClick={clear}>
-            Clear
-          </button>
-        </div>
-      </form>
 
       {error && <div className="error">{error}</div>}
 
-      {!loading && visible.length === 0 ? (
-        <div className="empty">No posted loads match. Try widening your filters.</div>
+      {loading ? (
+        <div className="empty">Loading…</div>
+      ) : visible.length === 0 ? (
+        <div className="empty">
+          {nearMe
+            ? "No posted loads within your service radius. Turn off “In my radius” to see all loads."
+            : "No posted loads match. Try widening your filters."}
+        </div>
       ) : (
-        <div className="loads-table">
-          <div className="loads-table-head">
-            <span>Load</span>
-            <span>Route</span>
-            <span className="col-cargo">Cargo</span>
-            <span className="col-when">When</span>
-            <span style={{ textAlign: "right" }}>Payout</span>
-            <span className="col-action" />
+        <div className="browse-split">
+          <div className="browse-list">
+            {visible.map((l, i) => {
+              const featured = i === 0 && l.urgency === "express";
+              const pickup = formatPickupShort(l.pickup_window_start);
+              return (
+                <Link
+                  key={l.id}
+                  to={`/hauler/loads/${l.id}`}
+                  className={`load-card ${featured ? "featured" : ""}`}
+                >
+                  <div className="load-card-top">
+                    <div className="title">
+                      {l.title}
+                      {l.urgency === "express" && (
+                        <span className="hh-pill hh-pill--accent" style={{ height: 18, fontSize: 9, padding: "0 6px" }}>
+                          EXP
+                        </span>
+                      )}
+                    </div>
+                    <div className="load-card-payout">{formatPrice(l.calculated_price_cents)}</div>
+                  </div>
+                  <div className="load-card-route">
+                    {l.pickup_city}, {l.pickup_state}
+                    <span className="arrow">→</span>
+                    {l.dropoff_city}, {l.dropoff_state}
+                  </div>
+                  <div className="load-card-meta">
+                    <span>{l.estimated_distance_miles} mi</span>
+                    <span className="dot">·</span>
+                    <span>{l.weight_lbs.toLocaleString()} lb</span>
+                    <span className="dot">·</span>
+                    <span>{pickup.date}, {pickup.time}</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-          {visible.map((l, i) => {
-            const featured = i === 0 && l.urgency === "express";
-            const pickup = formatPickupShort(l.pickup_window_start);
-            return (
-              <Link
-                key={l.id}
-                to={`/hauler/loads/${l.id}`}
-                className={`loads-table-row ${featured ? "featured" : ""}`}
-                style={{ color: "inherit", textDecoration: "none", display: "grid" }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div className="title">
-                    {l.title}
-                    {l.urgency === "express" && (
-                      <span className="hh-pill hh-pill--accent" style={{ height: 18, fontSize: 9, padding: "0 6px" }}>
-                        EXP
-                      </span>
-                    )}
-                  </div>
-                  <div className="sub">
-                    <span className="hh-mono">#{l.id.slice(0, 6)}</span>
-                  </div>
-                </div>
-                <div style={{ font: "600 12px var(--hh-font)", color: "var(--hh-ink-800)" }}>
-                  {l.pickup_city}, {l.pickup_state}
-                  <span style={{ color: "var(--hh-ink-400)", margin: "0 6px" }}>→</span>
-                  {l.dropoff_city}, {l.dropoff_state}
-                  <div className="sub">{l.estimated_distance_miles} mi</div>
-                </div>
-                <div className="col-cargo" style={{ font: "500 12px var(--hh-font)", color: "var(--hh-ink-700)" }}>
-                  {l.weight_lbs.toLocaleString()} lb
-                  <div className="sub">{l.urgency}</div>
-                </div>
-                <div className="col-when" style={{ font: "500 12px var(--hh-font)", color: "var(--hh-ink-700)" }}>
-                  {pickup.date}
-                  <div className="sub">{pickup.time}</div>
-                </div>
-                <div className="col-payout">{formatPrice(l.calculated_price_cents)}</div>
-                <div className="col-action">
-                  <span className={`btn-sm ${featured ? "accent" : "secondary"}`} style={{ display: "inline-flex" }}>
-                    {featured ? "Claim" : "View"}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
+          <div className="browse-map">
+            <PickupsMap
+              loads={visible}
+              onSelect={(id) => navigate(`/hauler/loads/${id}`)}
+              height="100%"
+            />
+          </div>
         </div>
       )}
     </div>

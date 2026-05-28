@@ -114,6 +114,20 @@ export interface Me {
   profile: UserProfile;
 }
 
+export interface Address {
+  id: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  // Decimal strings from the backend (e.g. "30.267200"), or null when not yet geocoded.
+  lat: string | null;
+  lng: string | null;
+  place_id: string | null;
+}
+
 export interface Load {
   id: string;
   shipper_id: string;
@@ -136,6 +150,8 @@ export interface Load {
   dropoff_state: string;
   dropoff_zip: string;
   dropoff_by: string;
+  pickup_address_ref?: Address | null;
+  dropoff_address_ref?: Address | null;
   estimated_distance_miles: number;
   urgency: Urgency;
   calculated_price_cents: number;

@@ -4,6 +4,8 @@ import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
 import type { Load, Payment } from "../lib/types";
 import { formatDate, formatPrice, formatStatus } from "../lib/format";
+import { RouteMap } from "../components/RouteMap";
+import { coordOf } from "../lib/maps";
 
 interface ActionConfig {
   label: string;
@@ -171,6 +173,12 @@ export function LoadDetailPage() {
               <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
                 {load.estimated_distance_miles} mi
               </span>
+            </div>
+            <div style={{ marginTop: 10, marginBottom: 14 }}>
+              <RouteMap
+                pickup={coordOf(load.pickup_address_ref)}
+                dropoff={coordOf(load.dropoff_address_ref)}
+              />
             </div>
             <div className="hh-route" style={{ marginTop: 6 }}>
               <span className="hh-route__dot" />
