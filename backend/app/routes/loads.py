@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.databases import get_db
 from app.dependencies.auth import current_user
+from app.models.address import Address
 from app.models.booking_event import BookingEvent
 from app.models.load import Load, LoadStatus
 from app.models.payment import Payment
@@ -20,7 +21,7 @@ from app.schemas.load import (
 )
 from app.schemas.payment import PaymentRead
 from app.services import booking
-from app.services.addresses import find_or_create_address
+from app.services.addresses import find_or_create_address, haversine_miles
 from app.services.pricing import calculate_price_cents
 from app.services.reference_codes import generate_load_reference
 from app.services.storage import upload_file
@@ -76,6 +77,7 @@ async def create_load(
         city=payload.pickup_city,
         state=payload.pickup_state,
         postal_code=payload.pickup_zip,
+        geocode_if_missing=True,
     )
     dropoff = await find_or_create_address(
         db,
@@ -83,6 +85,7 @@ async def create_load(
         city=payload.dropoff_city,
         state=payload.dropoff_state,
         postal_code=payload.dropoff_zip,
+        geocode_if_missing=True,
     )
 
     load = Load(
@@ -105,16 +108,50 @@ async def create_load(
 async def list_loads(
     city: str | None = Query(default=None, description="Filter by pickup city"),
     state: str | None = Query(default=None, description="Filter by pickup state"),
+    near_me: bool = Query(
+        default=False,
+        description="Only loads whose pickup is within the hauler's service radius of their home base",
+    ),
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(current_user),
+    user: User = Depends(current_user),
 ) -> list[Load]:
     stmt = select(Load).where(Load.status == LoadStatus.posted).order_by(Load.created_at.desc())
     if city:
         stmt = stmt.where(Load.pickup_city == city)
     if state:
         stmt = stmt.where(Load.pickup_state == state)
-    result = await db.scalars(stmt)
-    return list(result)
+    loads = list(await db.scalars(stmt))
+    if near_me:
+        loads = await _filter_within_service_radius(db, user, loads)
+    return loads
+
+
+async def _filter_within_service_radius(
+    db: AsyncSession, user: User, loads: list[Load]
+) -> list[Load]:
+    """Keep only loads whose pickup falls within the hauler's service radius.
+
+    No-ops (returns the list unchanged) if the user has no hauler profile or no
+    geocoded home base — there's nothing to measure against. Loads whose pickup
+    lacks coordinates are dropped, since we can't confirm they're in range.
+    """
+    profile = user.hauler_profile
+    if profile is None or profile.home_base_address_id is None:
+        return loads
+    home = await db.get(Address, profile.home_base_address_id)
+    if home is None or home.lat is None or home.lng is None:
+        return loads
+
+    home_lat, home_lng = float(home.lat), float(home.lng)
+    within: list[Load] = []
+    for load in loads:
+        pickup = load.pickup_address_ref
+        if pickup is None or pickup.lat is None or pickup.lng is None:
+            continue
+        distance = haversine_miles(home_lat, home_lng, float(pickup.lat), float(pickup.lng))
+        if distance <= profile.service_radius_miles:
+            within.append(load)
+    return within
 
 
 @router.get("/{load_id}", response_model=LoadRead)

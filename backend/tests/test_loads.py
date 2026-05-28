@@ -222,3 +222,61 @@ async def test_invalid_payloads_return_422(
     }
     r = await client.post("/api/loads", json=bad, headers=shipper_h)
     assert r.status_code == 422, r.text
+
+
+async def test_near_me_filters_to_service_radius(
+    client: AsyncClient, shipper_h: dict
+) -> None:
+    """near_me=true keeps only loads whose pickup is within the hauler's radius."""
+    from sqlalchemy import select
+
+    from app.databases import AsyncSessionLocal
+    from app.models.address import Address
+    from app.models.user import HaulerProfile
+
+    # Two posted loads with distinct pickup cities → distinct address rows.
+    near = _load_payload(" near") | {"pickup_city": "Rogers", "pickup_state": "AR", "pickup_zip": "72756"}
+    far = _load_payload(" far") | {"pickup_city": "Dallas", "pickup_state": "TX", "pickup_zip": "75201"}
+    near_id = (await client.post("/api/loads", json=near, headers=shipper_h)).json()["id"]
+    far_id = (await client.post("/api/loads", json=far, headers=shipper_h)).json()["id"]
+
+    # A hauler with a 50-mi radius based in Bentonville, AR.
+    hauler_h = await _signup_hauler(client, "hank@example.com")
+    await client.post(
+        "/api/me/enable-hauler",
+        json={"company_name": "Ozark Haul Co", "service_radius_miles": 50},
+        headers=hauler_h,
+    )
+
+    # Set coordinates directly so the radius math is deterministic regardless
+    # of whether geocoding is configured in the test environment.
+    async with AsyncSessionLocal() as db:
+        home = Address(line1="1108 SW 14th St", city="Bentonville", state="AR",
+                       postal_code="72712", lat=36.3551, lng=-94.2305)
+        db.add(home)
+        await db.flush()
+        rogers = await db.scalar(select(Address).where(Address.city == "Rogers"))
+        dallas = await db.scalar(select(Address).where(Address.city == "Dallas"))
+        rogers.lat, rogers.lng = 36.3340, -94.1455   # ~8 mi from Bentonville
+        dallas.lat, dallas.lng = 32.7795, -96.8076    # ~330 mi away
+        profile = await db.scalar(select(HaulerProfile))
+        profile.home_base_address_id = home.id
+        await db.commit()
+
+    in_radius = await client.get("/api/loads?near_me=true", headers=hauler_h)
+    ids = [l["id"] for l in in_radius.json()]
+    assert near_id in ids
+    assert far_id not in ids
+
+    # Without the filter, both are visible.
+    all_ids = [l["id"] for l in (await client.get("/api/loads", headers=hauler_h)).json()]
+    assert {near_id, far_id} <= set(all_ids)
+
+
+async def _signup_hauler(client: AsyncClient, email: str) -> dict:
+    r = await client.post(
+        "/api/auth/signup",
+        json={"email": email, "password": "supersecret", "full_name": "Hank", "roles": ["hauler"]},
+    )
+    assert r.status_code == 201, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
