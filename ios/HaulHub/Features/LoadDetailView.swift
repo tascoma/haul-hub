@@ -136,7 +136,7 @@ struct LoadDetailView: View {
     }
 
     private var mapBlock: some View {
-        HHMapView(label: "\(current.pickupCity) → \(current.dropoffCity)")
+        HHRouteMapView(load: current)
             .frame(height: 160)
             .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
             .overlay(
