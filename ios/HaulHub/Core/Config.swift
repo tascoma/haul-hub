@@ -9,4 +9,12 @@ enum Config {
         }
         return url
     }
+
+    /// Stripe publishable key used to initialize the Stripe SDK. Reads
+    /// `STRIPE_PUBLISHABLE_KEY` from the environment, falling back to a test key
+    /// placeholder so the app still launches in development.
+    static var stripePublishableKey: String {
+        ProcessInfo.processInfo.environment["STRIPE_PUBLISHABLE_KEY"]
+            ?? "pk_test_placeholder"
+    }
 }

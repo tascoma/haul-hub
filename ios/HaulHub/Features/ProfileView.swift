@@ -120,7 +120,18 @@ struct ProfileView: View {
     @State private var currentlyAvailable = false
     @State private var haulerStatus: SaveStatus = .idle
 
+    // ── Stripe payouts (hauler Connect) ──────────────────────────────────────
+    @State private var connectStatus: SaveStatus = .idle
+    @State private var onboardingURL: URL? = nil
+    @State private var showOnboarding = false
+
+    // ── Payment method (shipper card summary) ────────────────────────────────
+    @State private var savedCard: PaymentMethodInfo? = nil
+    @State private var cardLoaded = false
+
     private var me: Me? { session.me }
+    private var payments: PaymentsClient { PaymentsClient(api: api) }
+    private var connectConnected: Bool { me?.profile.stripeConnectAccountId != nil }
 
     var body: some View {
         NavigationStack {
@@ -128,9 +139,13 @@ struct ProfileView: View {
                 VStack(spacing: 16) {
                     headerCard
                     personalCard
+                    if me?.profile.shipperEnabled == true {
+                        paymentMethodCard
+                    }
                     prefsCard
                     passwordCard
                     if me?.profile.haulerEnabled == true {
+                        payoutsCard
                         haulerCard
                     }
                     signOutButton
@@ -145,6 +160,17 @@ struct ProfileView: View {
         .task {
             guard me?.profile.haulerEnabled == true, !haulerLoaded else { return }
             await loadHaulerProfile()
+        }
+        .task {
+            guard me?.profile.shipperEnabled == true, !cardLoaded else { return }
+            await loadSavedCard()
+        }
+        .sheet(isPresented: $showOnboarding, onDismiss: {
+            Task { await session.refresh() }
+        }) {
+            if let onboardingURL {
+                SafariView(url: onboardingURL).ignoresSafeArea()
+            }
         }
     }
 
@@ -402,6 +428,75 @@ struct ProfileView: View {
         .hhCard()
     }
 
+    // MARK: - Payment method card (shipper)
+
+    private var paymentMethodCard: some View {
+        NavigationLink {
+            PaymentMethodView()
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: HHRadius.sm)
+                        .fill(HHColor.ink100)
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "creditcard.fill")
+                        .foregroundStyle(HHColor.ink700)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Payment Method")
+                        .font(HHFont.titleSm)
+                        .foregroundStyle(HHColor.ink900)
+                    if let card = savedCard {
+                        Text("\(card.display) · exp \(card.expiryDisplay)")
+                            .font(HHFont.small)
+                            .foregroundStyle(HHColor.ink500)
+                    } else {
+                        Text("Add a card to pay for loads.")
+                            .font(HHFont.small)
+                            .foregroundStyle(HHColor.ink500)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HHColor.ink400)
+            }
+        }
+        .buttonStyle(.plain)
+        .hhCard()
+    }
+
+    // MARK: - Stripe payouts card (hauler Connect)
+
+    private var payoutsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Stripe Payouts")
+                    .font(HHFont.titleSm)
+                    .foregroundStyle(HHColor.ink900)
+                Spacer()
+                if connectConnected {
+                    HHPill(text: "Connected", style: .success)
+                }
+            }
+
+            Text(connectConnected
+                 ? "Your Stripe account is connected. You'll receive payouts after completed hauls."
+                 : "Connect a Stripe account to receive payouts when you complete hauls.")
+                .font(HHFont.small)
+                .foregroundStyle(HHColor.ink500)
+
+            hhSaveRow(
+                status: connectStatus,
+                label: connectConnected ? "Manage Stripe account" : "Connect Stripe account",
+                accent: !connectConnected
+            ) {
+                Task { await startConnectOnboarding() }
+            }
+        }
+        .hhCard()
+    }
+
     // MARK: - Sign-out button
 
     private var signOutButton: some View {
@@ -490,6 +585,22 @@ struct ProfileView: View {
             currentlyAvailable = hp.currentlyAvailable
         } catch {
             // Hauler profile not yet created — form defaults remain
+        }
+    }
+
+    private func loadSavedCard() async {
+        defer { cardLoaded = true }
+        savedCard = try? await payments.paymentMethod()
+    }
+
+    private func startConnectOnboarding() async {
+        connectStatus = .saving
+        do {
+            onboardingURL = try await payments.connectOnboarding()
+            showOnboarding = true
+            connectStatus = .idle
+        } catch {
+            connectStatus = .error(apiMsg(error))
         }
     }
 

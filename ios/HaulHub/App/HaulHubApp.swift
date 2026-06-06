@@ -1,8 +1,13 @@
 import SwiftUI
+import StripeCore
 
 @main
 struct HaulHubApp: App {
     @StateObject private var session = AuthSession()
+
+    init() {
+        StripeAPI.defaultPublishableKey = Config.stripePublishableKey
+    }
 
     var body: some Scene {
         WindowGroup {
