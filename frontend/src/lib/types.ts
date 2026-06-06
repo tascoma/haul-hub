@@ -7,7 +7,38 @@ export type VehicleType =
   | "box_truck"
   | "cargo_van"
   | "semi"
+  | "dump_truck"
+  | "roll_off"
   | "other";
+
+export type VehicleStatus = "active" | "inactive" | "retired";
+
+export interface Vehicle {
+  id: string;
+  owner_user_id: string;
+  nickname: string | null;
+  vehicle_type: VehicleType;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  color: string | null;
+  license_plate: string | null;
+  license_plate_state: string | null;
+  vin: string | null;
+  max_payload_lbs: number | null;
+  max_volume_cuft: number | null;
+  bed_length_ft: number | null;
+  bed_width_ft: number | null;
+  bed_height_ft: number | null;
+  has_lift_gate: boolean;
+  has_dolly: boolean;
+  has_straps: boolean;
+  has_blankets: boolean;
+  is_default: boolean;
+  status: VehicleStatus;
+  created_at: string;
+  updated_at: string;
+}
 
 export type Urgency = "standard" | "express";
 
@@ -28,31 +59,46 @@ export type PaymentStatus =
   | "refunded"
   | "failed";
 
+export type BusinessType = "individual" | "llc" | "corporation" | "partnership";
+export type UserStatus = "active" | "suspended" | "deleted";
+
 export interface UserProfile {
   user_id: string;
   full_name: string | null;
+  display_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  bio: string | null;
+  preferred_language: string;
+  timezone: string;
   shipper_enabled: boolean;
   hauler_enabled: boolean;
-  stripe_account_id: string | null;
+  marketing_opt_in: boolean;
+  stripe_customer_id: string | null;
+  stripe_connect_account_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface HaulerProfile {
   user_id: string;
-  vehicle_type: VehicleType;
-  vehicle_make: string | null;
-  vehicle_model: string | null;
-  vehicle_year: number | null;
-  max_weight_lbs: number | null;
-  max_length_ft: number | null;
-  max_width_ft: number | null;
-  max_height_ft: number | null;
-  license_number: string | null;
-  insurance_doc_url: string | null;
+  company_name: string | null;
+  business_type: BusinessType | null;
+  tax_id_last4: string | null;
+  years_experience: number | null;
+  bio: string | null;
+  home_base_address_id: string | null;
+  service_radius_miles: number;
+  accepts_disposal_jobs: boolean;
+  accepts_donation_runs: boolean;
+  accepts_hazardous: boolean;
+  currently_available: boolean;
+  auto_accept_under_cents: number | null;
+  rating_avg: number | null;
+  rating_count: number;
+  jobs_completed: number;
   verified_at: string | null;
+  suspended_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -60,7 +106,26 @@ export interface HaulerProfile {
 export interface Me {
   id: string;
   email: string;
+  phone: string | null;
+  status: UserStatus;
+  email_verified_at: string | null;
+  phone_verified_at: string | null;
+  last_login_at: string | null;
   profile: UserProfile;
+}
+
+export interface Address {
+  id: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  // Decimal strings from the backend (e.g. "30.267200"), or null when not yet geocoded.
+  lat: string | null;
+  lng: string | null;
+  place_id: string | null;
 }
 
 export interface Load {
@@ -85,6 +150,8 @@ export interface Load {
   dropoff_state: string;
   dropoff_zip: string;
   dropoff_by: string;
+  pickup_address_ref?: Address | null;
+  dropoff_address_ref?: Address | null;
   estimated_distance_miles: number;
   urgency: Urgency;
   calculated_price_cents: number;

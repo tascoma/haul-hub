@@ -8,13 +8,17 @@ class Settings(BaseSettings):
     port: int = 8000
     # Plain str — pydantic-settings would JSON-decode a list[str] field before validators run.
     allowed_origins: str = "http://localhost:5173"
-    database_url: str = "sqlite+aiosqlite:///./haul_hub.db"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/haul_hub"
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
     storage_bucket: str = "uploads"
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-4-6"
     log_level: str = "INFO"
+
+    # Google Maps server-side key (Geocoding API). Separate from the browser key the
+    # web frontend uses. When None, geocoding is skipped and addresses stay uncoordinated.
+    google_maps_api_key: str | None = None
 
     # JWT auth — uses secret_key as the signing key.
     jwt_algorithm: str = "HS256"

@@ -2,11 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import type { ReactNode } from "react";
 import { api, getToken, setToken } from "./api";
 import type { Me, TokenResponse } from "./types";
+import type { Role } from "../types/onboarding";
 
 interface AuthState {
   me: Me | null;
   loading: boolean;
-  signup: (email: string, password: string, fullName: string) => Promise<void>;
+  signup: (email: string, password: string, fullName: string, roles: Role[]) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
@@ -40,10 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const signup = useCallback(
-    async (email: string, password: string, fullName: string) => {
+    async (email: string, password: string, fullName: string, roles: Role[]) => {
       const res = await api.post<TokenResponse>(
         "/auth/signup",
-        { email, password, full_name: fullName },
+        { email, password, full_name: fullName, roles },
         { skipAuth: true },
       );
       setToken(res.access_token);

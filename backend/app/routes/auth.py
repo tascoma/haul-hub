@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +8,7 @@ from app.databases import get_db
 from app.models.user import User, UserProfile
 from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse
 from app.services.auth import create_access_token, hash_password, verify_password
+from app.services.hauler import ensure_hauler_profile
 
 router = APIRouter()
 
@@ -16,9 +19,19 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    wants_customer = "customer" in payload.roles
+    wants_hauler = "hauler" in payload.roles
+
     user = User(email=payload.email, password_hash=hash_password(payload.password))
-    user.profile = UserProfile(full_name=payload.full_name, shipper_enabled=True)
+    user.profile = UserProfile(
+        full_name=payload.full_name,
+        shipper_enabled=wants_customer,
+        hauler_enabled=wants_hauler,
+    )
     db.add(user)
+    await db.flush()
+    if wants_hauler:
+        await ensure_hauler_profile(db, user)
     await db.commit()
     await db.refresh(user)
     return TokenResponse(access_token=create_access_token(user.id))
@@ -31,4 +44,6 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> To
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
         )
+    user.last_login_at = datetime.now(UTC)
+    await db.commit()
     return TokenResponse(access_token=create_access_token(user.id))
