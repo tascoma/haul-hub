@@ -13,8 +13,10 @@ from app.databases import AsyncSessionLocal
 from app.services import addresses, geocoding
 
 
-async def test_geocode_returns_none_without_api_key() -> None:
-    # The test suite sets no GOOGLE_MAPS_API_KEY, so geocoding is a no-op.
+async def test_geocode_returns_none_without_api_key(monkeypatch) -> None:
+    # Force the key off so this exercises the no-key short-circuit regardless of
+    # whatever GOOGLE_MAPS_API_KEY happens to be set in the environment.
+    monkeypatch.setattr(geocoding.settings, "google_maps_api_key", None)
     result = await geocoding.geocode(
         line1="1 Market St", city="San Francisco", state="CA", postal_code="94105"
     )
