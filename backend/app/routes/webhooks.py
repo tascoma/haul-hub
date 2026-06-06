@@ -60,7 +60,27 @@ async def _handle_payment_intent_succeeded(db: AsyncSession, intent: dict) -> No
     payment.status = PaymentStatus.captured
 
 
+async def _handle_payment_intent_failed(db: AsyncSession, intent: dict) -> None:
+    intent_id = intent.get("id")
+    if intent_id is None:
+        return
+    payment = await db.scalar(
+        select(Payment).where(Payment.stripe_payment_intent_id == intent_id)
+    )
+    if payment is None:
+        logger.warning("payment_intent.payment_failed for unknown intent %s", intent_id)
+        return
+    last_error = intent.get("last_payment_error") or {}
+    payment.status = PaymentStatus.failed
+    payment.error_message = last_error.get("message", "Payment failed")
+    logger.info(
+        "payment_intent.payment_failed: payment %s marked failed for intent %s",
+        payment.id, intent_id,
+    )
+
+
 _HANDLERS = {
     "account.updated": _handle_account_updated,
     "payment_intent.succeeded": _handle_payment_intent_succeeded,
+    "payment_intent.payment_failed": _handle_payment_intent_failed,
 }

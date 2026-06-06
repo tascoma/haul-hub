@@ -30,7 +30,12 @@ from app.schemas.identity_verification import (
 )
 from app.schemas.load import LoadRead
 from app.schemas.onboarding import OnboardingChecks, OnboardingStatus, OnboardingStep
-from app.schemas.payment import ConnectOnboardingResponse
+from app.schemas.payment import (
+    ConnectOnboardingResponse,
+    PaymentMethodInfo,
+    SavePaymentMethodRequest,
+    SetupIntentResponse,
+)
 from app.schemas.service_area import ServiceAreaCreate, ServiceAreaRead
 from app.schemas.terms_acceptance import TermsAcceptanceCreate, TermsAcceptanceRead
 from app.schemas.auth import ChangePasswordRequest
@@ -221,6 +226,45 @@ async def connect_onboarding(
     url = await payments.create_connect_onboarding_link(db, user)
     await db.commit()
     return ConnectOnboardingResponse(url=url)
+
+
+# ─── Payment method (shipper card) ─────────────────────────────────────────
+
+@router.post("/payment-method/setup-intent", response_model=SetupIntentResponse)
+async def create_setup_intent(
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SetupIntentResponse:
+    """Return a SetupIntent client_secret so the frontend can tokenize a card."""
+    client_secret = await payments.create_setup_intent(db, user)
+    await db.commit()
+    return SetupIntentResponse(client_secret=client_secret)
+
+
+@router.post("/payment-method", response_model=PaymentMethodInfo)
+async def save_payment_method(
+    payload: SavePaymentMethodRequest,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaymentMethodInfo:
+    """Attach a confirmed PaymentMethod to the shipper's Customer and set it as default."""
+    card = await payments.save_default_payment_method(db, user, payload.payment_method_id)
+    await db.commit()
+    return PaymentMethodInfo(**card)
+
+
+@router.get("/payment-method", response_model=PaymentMethodInfo)
+async def get_payment_method(
+    user: User = Depends(current_user),
+) -> PaymentMethodInfo:
+    """Return the shipper's saved card info, or 404 if none saved."""
+    card = await payments.get_default_payment_method(user)
+    if card is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No payment method saved",
+        )
+    return PaymentMethodInfo(**card)
 
 
 # ─── Vehicles ──────────────────────────────────────────────────────────────

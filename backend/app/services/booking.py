@@ -66,7 +66,7 @@ async def accept_load(db: AsyncSession, load: Load, hauler: User) -> Load:
     load.hauler_id = hauler.id
     load.accepted_at = datetime.now(UTC)
     await _log_event(db, load, hauler, BookingEventType.accepted)
-    await payments.authorize_payment_for_load(db, load)
+    await payments.authorize_payment_for_load(db, load, hauler)
     return load
 
 
