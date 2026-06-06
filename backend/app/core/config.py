@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     log_level: str = "INFO"
 
+    # Google Maps server-side key (Geocoding API). Separate from the browser key the
+    # web frontend uses. When None, geocoding is skipped and addresses stay uncoordinated.
+    google_maps_api_key: str | None = None
+
     # JWT auth — uses secret_key as the signing key.
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days

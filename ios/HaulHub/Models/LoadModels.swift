@@ -61,6 +61,17 @@ enum Urgency: String, Decodable, Hashable {
     case express
 }
 
+// MARK: - Address ref (mirrors backend AddressRead; lat/lng arrive as decimal strings)
+
+struct AddressRef: Decodable, Hashable {
+    let lat: String?
+    let lng: String?
+
+    /// Parsed latitude, or nil if the address hasn't been geocoded yet.
+    var latitude: Double? { lat.flatMap(Double.init) }
+    var longitude: Double? { lng.flatMap(Double.init) }
+}
+
 // MARK: - API Load (mirrors backend LoadRead schema)
 
 struct APILoad: Decodable, Identifiable, Hashable {
@@ -86,6 +97,8 @@ struct APILoad: Decodable, Identifiable, Hashable {
     let dropoffState: String
     let dropoffZip: String
     let dropoffBy: Date
+    let pickupAddressRef: AddressRef?
+    let dropoffAddressRef: AddressRef?
     let estimatedDistanceMiles: Double
     let urgency: Urgency
     let calculatedPriceCents: Int

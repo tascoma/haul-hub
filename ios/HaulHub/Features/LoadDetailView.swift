@@ -136,7 +136,7 @@ struct LoadDetailView: View {
     }
 
     private var mapBlock: some View {
-        HHMapView(label: "\(current.pickupCity) → \(current.dropoffCity)")
+        HHRouteMapView(load: current)
             .frame(height: 160)
             .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
             .overlay(
@@ -253,12 +253,11 @@ struct LoadDetailView: View {
         .padding(.horizontal, 18)
         .padding(.top, 14)
         .padding(.bottom, 16)
-        .background(
-            LinearGradient(
-                colors: [HHColor.ink50.opacity(0), HHColor.ink50],
-                startPoint: .top, endPoint: .bottom
-            )
-        )
+        .background(HHColor.ink50)
+        .overlay(alignment: .top) {
+            Rectangle().fill(HHColor.ink200).frame(height: 1)
+        }
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: -3)
     }
 }
 

@@ -56,11 +56,7 @@ struct ShipperLoadDetailView: View {
     }
 
     private var mapBlock: some View {
-        HHMapView(
-            progress: Double(load.status.stageIndex) / 4.0,
-            live: load.status == .inTransit,
-            label: "\(load.pickupCity) → \(load.dropoffCity)"
-        )
+        HHRouteMapView(load: load)
         .frame(height: 160)
         .clipShape(RoundedRectangle(cornerRadius: HHRadius.md, style: .continuous))
         .overlay(
