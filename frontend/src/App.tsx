@@ -17,7 +17,10 @@ import { HaulerProfileOnboardingPage } from "./pages/onboarding/HaulerProfileOnb
 import { OnboardingRouterPage } from "./pages/onboarding/OnboardingRouterPage";
 import { ProfileOnboardingPage } from "./pages/onboarding/ProfileOnboardingPage";
 import { ServiceAreaOnboardingPage } from "./pages/onboarding/ServiceAreaOnboardingPage";
+import { StripeRefreshPage } from "./pages/onboarding/StripeRefreshPage";
+import { StripeReturnPage } from "./pages/onboarding/StripeReturnPage";
 import { VehicleOnboardingPage } from "./pages/onboarding/VehicleOnboardingPage";
+import { PaymentMethodPage } from "./pages/PaymentMethodPage";
 
 function ShipperRoute({ children }: { children: ReactNode }) {
   const { me } = useAuth();
@@ -72,6 +75,14 @@ export default function App() {
           path="/onboarding/hauler/service-area"
           element={<ProtectedRoute><ServiceAreaOnboardingPage /></ProtectedRoute>}
         />
+        <Route
+          path="/onboarding/stripe/return"
+          element={<ProtectedRoute><StripeReturnPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/onboarding/stripe/refresh"
+          element={<ProtectedRoute><StripeRefreshPage /></ProtectedRoute>}
+        />
 
         {/* Legacy redirect */}
         <Route
@@ -83,6 +94,10 @@ export default function App() {
         <Route
           path="/profile"
           element={<ProtectedRoute><OnboardingGate><ProfilePage /></OnboardingGate></ProtectedRoute>}
+        />
+        <Route
+          path="/payment-method"
+          element={<ProtectedRoute><OnboardingGate><PaymentMethodPage /></OnboardingGate></ProtectedRoute>}
         />
 
         {/* ── Shipper UI ── */}

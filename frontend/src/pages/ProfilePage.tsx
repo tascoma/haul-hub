@@ -78,6 +78,13 @@ export function ProfilePage() {
   const [confirmPw,  setConfirmPw]  = useState("");
   const pwSave = useSaveStatus();
 
+  // ── home address state ───────────────────────────────────────────────────
+  const [addressLine1,  setAddressLine1]  = useState("");
+  const [addressCity,   setAddressCity]   = useState("");
+  const [addressState,  setAddressState]  = useState("");
+  const [addressZip,    setAddressZip]    = useState("");
+  const addressSave = useSaveStatus();
+
   // ── hauler state ─────────────────────────────────────────────────────────
   const [haulerProfile,      setHaulerProfile]      = useState<HaulerProfile | null>(null);
   const [companyName,        setCompanyName]        = useState("");
@@ -102,6 +109,10 @@ export function ProfilePage() {
     setLanguage(p.preferred_language ?? "en");
     setTimezone(p.timezone ?? "America/Los_Angeles");
     setMarketingOptIn(p.marketing_opt_in ?? false);
+    setAddressLine1(p.address_line1 ?? "");
+    setAddressCity(p.address_city ?? "");
+    setAddressState(p.address_state ?? "");
+    setAddressZip(p.address_zip ?? "");
 
     if (p.hauler_enabled) {
       api.get<HaulerProfile>("/me/hauler-profile")
@@ -159,6 +170,21 @@ export function ProfilePage() {
       await refresh();
       prefSave.ok("Preferences saved.");
     } catch (err) { prefSave.fail(err); }
+  };
+
+  const saveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    addressSave.start();
+    try {
+      await api.patch("/me", {
+        address_line1: addressLine1 || null,
+        address_city: addressCity || null,
+        address_state: addressState || null,
+        address_zip: addressZip || null,
+      });
+      await refresh();
+      addressSave.ok("Address saved.");
+    } catch (err) { addressSave.fail(err); }
   };
 
   const saveHauler = async (e: React.FormEvent) => {
@@ -345,6 +371,69 @@ export function ProfilePage() {
           )}
         </form>
       </div>
+
+      {/* ── Home address ─────────────────────────────────────────────── */}
+      <form className="card form-grid" onSubmit={saveAddress} style={{ marginBottom: 24 }}>
+        <h2 style={{ marginTop: 0 }}>Home address</h2>
+
+        <div>
+          <label htmlFor="address-line1">Street address</label>
+          <input
+            id="address-line1"
+            value={addressLine1}
+            onChange={(e) => setAddressLine1(e.target.value)}
+            placeholder="123 Main St"
+          />
+        </div>
+
+        <div className="dashboard-cols two">
+          <div>
+            <label htmlFor="address-city">City</label>
+            <input
+              id="address-city"
+              value={addressCity}
+              onChange={(e) => setAddressCity(e.target.value)}
+              placeholder="Austin"
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: "0.75rem" }}>
+            <div>
+              <label htmlFor="address-state">State</label>
+              <input
+                id="address-state"
+                value={addressState}
+                onChange={(e) => setAddressState(e.target.value.toUpperCase().slice(0, 2))}
+                placeholder="TX"
+                maxLength={2}
+              />
+            </div>
+            <div>
+              <label htmlFor="address-zip">ZIP</label>
+              <input
+                id="address-zip"
+                value={addressZip}
+                onChange={(e) => setAddressZip(e.target.value)}
+                placeholder="78701"
+                maxLength={10}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="actions">
+          <button type="submit" className="primary" disabled={addressSave.status === "saving"}>
+            {addressSave.status === "saving" ? "Saving…" : "Save address"}
+          </button>
+        </div>
+        {addressSave.msg && (
+          <div
+            className="muted"
+            style={{ fontSize: 12, color: addressSave.status === "error" ? "var(--hh-danger)" : undefined }}
+          >
+            {addressSave.msg}
+          </div>
+        )}
+      </form>
 
       {/* ── Change password ──────────────────────────────────────────── */}
       <form className="card form-grid" onSubmit={savePassword} style={{ marginBottom: 24 }}>
@@ -537,7 +626,66 @@ export function ProfilePage() {
 
         {/* Vehicles */}
         <VehicleManager />
+
+        {/* Stripe Connect */}
+        <StripeConnectCard connectAccountId={me.profile.stripe_connect_account_id} />
         </>
+      )}
+    </div>
+  );
+}
+
+function StripeConnectCard({ connectAccountId }: { connectAccountId: string | null }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConnect() {
+    setLoading(true);
+    setError(null);
+    try {
+      const { url } = await api.post<{ url: string }>("/me/connect-onboarding");
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Could not start Stripe onboarding.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>Stripe payouts</h2>
+      {connectAccountId ? (
+        <>
+          <p className="muted" style={{ marginBottom: "0.75rem" }}>
+            Your Stripe account is connected. You can return to Stripe to update
+            your payout details.
+          </p>
+          <button
+            className="btn btn-secondary"
+            onClick={handleConnect}
+            disabled={loading}
+          >
+            {loading ? "Loading…" : "Manage Stripe account"}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="muted" style={{ marginBottom: "0.75rem" }}>
+            Connect a Stripe account to receive payouts when you complete hauls.
+          </p>
+          <button
+            className="accent"
+            onClick={handleConnect}
+            disabled={loading}
+          >
+            {loading ? "Loading…" : "Connect Stripe account"}
+          </button>
+        </>
+      )}
+      {error && (
+        <p style={{ color: "var(--hh-danger)", marginTop: "0.5rem", fontSize: 13 }}>
+          {error}
+        </p>
       )}
     </div>
   );
