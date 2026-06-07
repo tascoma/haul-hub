@@ -100,6 +100,10 @@ class UserProfile(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64))
     stripe_connect_account_id: Mapped[str | None] = mapped_column(String(64))
     stripe_default_payment_method_id: Mapped[str | None] = mapped_column(String(64))
+    # Connect payout readiness, kept in sync from the account.updated webhook.
+    stripe_charges_enabled: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    stripe_payouts_enabled: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    stripe_details_submitted: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     address_line1: Mapped[str | None] = mapped_column(String(255))
     address_city: Mapped[str | None] = mapped_column(String(100))
     address_state: Mapped[str | None] = mapped_column(String(2))

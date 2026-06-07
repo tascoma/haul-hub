@@ -5,6 +5,7 @@ rows are still written so the booking flow has a complete audit trail, but no re
 Stripe API calls happen. Set STRIPE_SECRET_KEY in .env to enable real charges/transfers.
 """
 
+import json
 import logging
 from datetime import UTC, datetime
 
@@ -30,6 +31,48 @@ def _stripe_enabled() -> bool:
 
 def calculate_platform_fee_cents(amount_cents: int) -> int:
     return amount_cents * settings.platform_fee_bps // 10000
+
+
+_TRANSFER_GROUP_PREFIX = "load_"
+
+
+def transfer_group_for_load(load_id: str) -> str:
+    """Stripe transfer_group set on the PaymentIntent so transfer.* webhooks can
+    be correlated back to the load."""
+    return f"{_TRANSFER_GROUP_PREFIX}{load_id}"
+
+
+def load_id_from_transfer_group(transfer_group: str | None) -> str | None:
+    if not transfer_group or not transfer_group.startswith(_TRANSFER_GROUP_PREFIX):
+        return None
+    return transfer_group[len(_TRANSFER_GROUP_PREFIX):]
+
+
+# Forward-only ordering for the linear capture path. refunded/failed are terminal
+# states set directly by their own flows and are intentionally absent here.
+_STATUS_ORDER = {
+    PaymentStatus.pending: 0,
+    PaymentStatus.authorized: 1,
+    PaymentStatus.captured: 2,
+    PaymentStatus.transferred: 3,
+}
+
+
+def advance_status(payment: Payment, new_status: PaymentStatus) -> bool:
+    """Move payment.status forward along the capture flow only.
+
+    Returns True if the status changed. Never regresses (e.g. a late
+    payment_intent.succeeded webhook cannot pull a `transferred` payment back to
+    `captured`) and never touches terminal states (refunded/failed).
+    """
+    current = _STATUS_ORDER.get(payment.status)
+    target = _STATUS_ORDER.get(new_status)
+    if current is None or target is None:
+        return False
+    if target > current:
+        payment.status = new_status
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -79,15 +122,25 @@ async def save_default_payment_method(
             detail="Payments are not configured on this server",
         )
     customer_id = await get_or_create_customer(db, user)
-    stripe.PaymentMethod.attach(payment_method_id, customer=customer_id)
-    stripe.Customer.modify(
-        customer_id,
-        invoice_settings={"default_payment_method": payment_method_id},
-    )
+    try:
+        stripe.PaymentMethod.attach(payment_method_id, customer=customer_id)
+        stripe.Customer.modify(
+            customer_id,
+            invoice_settings={"default_payment_method": payment_method_id},
+        )
+        pm = stripe.PaymentMethod.retrieve(payment_method_id)
+    except stripe.CardError as e:
+        # A declined/invalid card is the caller's problem, not a server error.
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=e.user_message or str(e),
+        )
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Only persist the default once Stripe has accepted the card.
     user.profile.stripe_default_payment_method_id = payment_method_id
     await db.flush()
-
-    pm = stripe.PaymentMethod.retrieve(payment_method_id)
     card = pm.card
     return {
         "brand": card.brand,
@@ -215,6 +268,8 @@ async def authorize_payment_for_load(db: AsyncSession, load: Load, hauler: User)
             capture_method="manual",
             application_fee_amount=payment.platform_fee_cents,
             transfer_data={"destination": hauler_connect_id},
+            transfer_group=transfer_group_for_load(load.id),
+            idempotency_key=f"authorize:{load.id}",
         )
         payment.stripe_payment_intent_id = intent.id
         payment.status = PaymentStatus.authorized
@@ -250,12 +305,25 @@ async def capture_and_transfer(db: AsyncSession, load: Load) -> Payment | None:
         load.id, payment.id, payment.status, payment.stripe_payment_intent_id or "NONE",
     )
 
+    # Only the authorized (real Stripe) and pending (bookkeeping-only) states are
+    # capturable. Anything further along — or a refund/failure — means a prior
+    # call or a webhook already handled this payment, so don't re-capture.
+    if payment.status not in {PaymentStatus.authorized, PaymentStatus.pending}:
+        logger.info(
+            "capture_and_transfer: payment %s already in status %s — skipping",
+            payment.id, payment.status,
+        )
+        return payment
+
     if _stripe_enabled() and payment.stripe_payment_intent_id:
         try:
             logger.info("capture_and_transfer: capturing PaymentIntent %s", payment.stripe_payment_intent_id)
             # transfer_data on the PaymentIntent means Stripe automatically transfers
             # the hauler's share on capture — no separate Transfer.create needed.
-            captured = stripe.PaymentIntent.capture(payment.stripe_payment_intent_id)
+            captured = stripe.PaymentIntent.capture(
+                payment.stripe_payment_intent_id,
+                idempotency_key=f"capture:{payment.id}",
+            )
             payment.captured_at = datetime.now(UTC)
 
             # Pull the transfer ID from the captured charge if available.
@@ -313,13 +381,44 @@ async def refund_on_cancel(db: AsyncSession, load: Load) -> Payment | None:
         load.id, payment.id, payment.stripe_payment_intent_id or "NONE",
     )
 
+    # Already refunded — nothing to do (guards against a double cancel/refund).
+    if payment.status == PaymentStatus.refunded:
+        logger.info("refund_on_cancel: payment %s already refunded — skipping", payment.id)
+        return payment
+
     if _stripe_enabled() and payment.stripe_payment_intent_id:
         try:
-            logger.info("refund_on_cancel: issuing refund for PaymentIntent %s", payment.stripe_payment_intent_id)
-            stripe.Refund.create(payment_intent=payment.stripe_payment_intent_id)
-            logger.info("refund_on_cancel: refund issued for load %s", load.id)
+            if payment.status == PaymentStatus.authorized:
+                # Funds are only held (manual capture), not captured. You can't
+                # refund an uncaptured charge — cancel the PaymentIntent to release
+                # the authorization hold instead.
+                logger.info(
+                    "refund_on_cancel: cancelling uncaptured PaymentIntent %s",
+                    payment.stripe_payment_intent_id,
+                )
+                stripe.PaymentIntent.cancel(
+                    payment.stripe_payment_intent_id,
+                    idempotency_key=f"cancel:{payment.id}",
+                )
+            else:
+                # Already captured (and usually transferred to the hauler): refund
+                # the charge, clawing back the transfer and application fee so the
+                # platform and hauler are made whole.
+                logger.info(
+                    "refund_on_cancel: refunding captured PaymentIntent %s",
+                    payment.stripe_payment_intent_id,
+                )
+                refund_kwargs: dict = {
+                    "payment_intent": payment.stripe_payment_intent_id,
+                    "idempotency_key": f"refund:{payment.id}",
+                }
+                if payment.status == PaymentStatus.transferred:
+                    refund_kwargs["reverse_transfer"] = True
+                    refund_kwargs["refund_application_fee"] = True
+                stripe.Refund.create(**refund_kwargs)
+            logger.info("refund_on_cancel: reversal issued for load %s", load.id)
         except stripe.StripeError as e:
-            logger.exception("refund_on_cancel: Stripe refund failed for load %s: %s", load.id, e)
+            logger.exception("refund_on_cancel: Stripe reversal failed for load %s: %s", load.id, e)
             payment.error_message = str(e)
             payment.status = PaymentStatus.failed
             return payment
@@ -334,17 +433,21 @@ async def refund_on_cancel(db: AsyncSession, load: Load) -> Payment | None:
 # ---------------------------------------------------------------------------
 
 
-def construct_webhook_event(payload: bytes, signature: str) -> stripe.Event:
+def construct_webhook_event(payload: bytes, signature: str) -> dict:
     if not settings.stripe_webhook_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Webhook secret not configured",
         )
     try:
-        return stripe.Webhook.construct_event(
+        stripe.Webhook.construct_event(
             payload=payload,
             sig_header=signature,
             secret=settings.stripe_webhook_secret,
         )
     except (ValueError, stripe.SignatureVerificationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    # construct_event verifies the signature but returns a stripe StripeObject,
+    # which (as of stripe-python v15) no longer supports dict-style .get(). The
+    # route and handlers operate on plain dicts, so return the parsed raw body.
+    return json.loads(payload)

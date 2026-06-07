@@ -215,12 +215,18 @@ async def test_payment_intent_failed_marks_payment_failed(
         payment.stripe_payment_intent_id = "pi_test_failed_123"
         await db.commit()
 
-    fake_intent = {
-        "id": "pi_test_failed_123",
-        "last_payment_error": {"message": "Your card has insufficient funds."},
+    fake_event = {
+        "id": "evt_failed_1",
+        "type": "payment_intent.payment_failed",
+        "data": {
+            "object": {
+                "id": "pi_test_failed_123",
+                "last_payment_error": {"message": "Your card has insufficient funds."},
+            }
+        },
     }
     async with AsyncSessionLocal() as db:
-        await _handle_payment_intent_failed(db, fake_intent)
+        await _handle_payment_intent_failed(db, fake_event)
         await db.commit()
 
     payment = await _payment_for(load_id)
