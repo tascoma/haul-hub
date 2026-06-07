@@ -5,7 +5,8 @@ import { api, ApiError } from "../lib/api";
 import type { Load } from "../lib/types";
 import { formatPrice, formatStatus } from "../lib/format";
 
-const HAULER_PAYOUT_RATE = 0.85;
+const PLATFORM_FEE_BPS = Number(import.meta.env.VITE_PLATFORM_FEE_BPS ?? 1000);
+const HAULER_PAYOUT_RATE = 1 - PLATFORM_FEE_BPS / 10000;
 
 function HaulRow({ load }: { load: Load }) {
   return (

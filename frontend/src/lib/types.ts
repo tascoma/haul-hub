@@ -76,6 +76,16 @@ export interface UserProfile {
   marketing_opt_in: boolean;
   stripe_customer_id: string | null;
   stripe_connect_account_id: string | null;
+  stripe_default_payment_method_id: string | null;
+  address_line1: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
+  billing_same_as_home: boolean;
+  billing_address_line1: string | null;
+  billing_address_city: string | null;
+  billing_address_state: string | null;
+  billing_address_zip: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -201,6 +211,13 @@ export interface Payment {
   refunded_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PaymentMethodInfo {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
 }
 
 export interface TokenResponse {

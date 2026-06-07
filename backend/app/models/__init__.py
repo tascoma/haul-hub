@@ -26,6 +26,7 @@ from app.models.user import (
     VehicleType,
 )
 from app.models.vehicle import Vehicle, VehicleStatus
+from app.models.webhook_event import ProcessedWebhookEvent
 
 __all__ = [
     "Address",
@@ -46,6 +47,7 @@ __all__ = [
     "Payment",
     "PaymentStatus",
     "PricingMode",
+    "ProcessedWebhookEvent",
     "SavedAddress",
     "ServiceArea",
     "ServiceAreaKind",

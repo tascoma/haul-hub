@@ -21,6 +21,15 @@ class UserProfileRead(BaseModel):
     marketing_opt_in: bool
     stripe_customer_id: str | None
     stripe_connect_account_id: str | None
+    address_line1: str | None
+    address_city: str | None
+    address_state: str | None
+    address_zip: str | None
+    billing_same_as_home: bool
+    billing_address_line1: str | None
+    billing_address_city: str | None
+    billing_address_state: str | None
+    billing_address_zip: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -34,6 +43,15 @@ class UserProfileUpdate(BaseModel):
     preferred_language: str | None = None
     timezone: str | None = None
     marketing_opt_in: bool | None = None
+    address_line1: str | None = None
+    address_city: str | None = None
+    address_state: str | None = None
+    address_zip: str | None = None
+    billing_same_as_home: bool | None = None
+    billing_address_line1: str | None = None
+    billing_address_city: str | None = None
+    billing_address_state: str | None = None
+    billing_address_zip: str | None = None
 
 
 class MeRead(BaseModel):

@@ -11,8 +11,10 @@ struct ShipperLoadDetailView: View {
     @State private var events: [APIBookingEvent] = []
     @State private var isLoadingEvents = false
     @State private var error: String?
+    @State private var payment: Payment?
 
     private var client: LoadsClient { LoadsClient(api: apiClient) }
+    private var payments: PaymentsClient { PaymentsClient(api: apiClient) }
 
     var body: some View {
         ScrollView {
@@ -22,6 +24,9 @@ struct ShipperLoadDetailView: View {
                 routeCard
                 statsRow
                 priceCard
+                if let payment {
+                    PaymentStatusCard(payment: payment, emphasizePayout: false)
+                }
                 timelineCard
                 if let error {
                     HHErrorBanner(message: error)
@@ -34,6 +39,7 @@ struct ShipperLoadDetailView: View {
         .navigationTitle("Tracking")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadEvents() }
+        .task { payment = try? await payments.payment(loadId: load.id) }
     }
 
     // MARK: - Blocks

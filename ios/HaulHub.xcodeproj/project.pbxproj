@@ -7,15 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A42CAA74DA5188F72EAD0A4 /* PaymentsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71BE73BE37E26D13C63A4C70 /* PaymentsClient.swift */; };
 		0DAB0275C64D3240817A040E /* HaulHubTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A474141D1DCD1B446B3CACEB /* HaulHubTests.swift */; };
 		11E78ECB6A05C0200D08EEE4 /* HaulerHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A16820FCFC18661C987AA3 /* HaulerHomeView.swift */; };
 		144685959C00B138E0E53929 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF5644AE713A8D9914C0EF6F /* SplashView.swift */; };
+		2001B89BE8576C5D2D972044 /* PaymentModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B718B44DAFE4EEAB823607BC /* PaymentModelsTests.swift */; };
 		31E1395D018B1A6DD8297B6D /* ShipperLoadDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BE1ADEDDBCEB97ED62977B /* ShipperLoadDetailView.swift */; };
 		36BF37698F42A6E441F3E2FF /* APIClientKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55EAC03BD99B033FC96189B /* APIClientKey.swift */; };
 		3D82C5A0CCDD99039500B991 /* LoadModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1884551F88F35399A7029331 /* LoadModels.swift */; };
 		466A6625A8DFEC4B8DB142DD /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE1F5384F3E0977490E7B2C /* ProfileView.swift */; };
 		492DF7D0BFF2ED0923CB0FA7 /* HHComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 713A41A51DAD4E9423D43E91 /* HHComponents.swift */; };
 		53C8E27DEB1AC46D665A7EA2 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B603F3480D976C380756CF /* AuthModels.swift */; };
+		58B0E86262E02703E3527877 /* PaymentStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10FF47F748315EAA1646D9A /* PaymentStatusCard.swift */; };
 		5BBABE999FBEB6C7D795FEA9 /* SignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B474A6C31FE0E6D0781A1032 /* SignupView.swift */; };
 		5ECCB26072123F998EF3FAA9 /* AuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7245A8594E29DEC2B5DA52AB /* AuthSession.swift */; };
 		6092B29426B931C51413BC39 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCD3839478928EC109394AB /* APIClient.swift */; };
@@ -26,6 +29,7 @@
 		852121E67C6BD5C1A27CB941 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D1C8701795E2FF69406F018 /* ContentView.swift */; };
 		859EF23A90A72A6066FB19D5 /* VehicleOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4232797704AD31EC0A15410 /* VehicleOnboardingView.swift */; };
 		8B907D0425CBFC7E468C1769 /* ActiveHaulView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767E4412CF8FF7873591F6A2 /* ActiveHaulView.swift */; };
+		A70A4B923B471DE1AFBE22E4 /* PaymentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D309F8B49F1F6C1594675D /* PaymentModels.swift */; };
 		AE33DA4FB095CDBF26115C6A /* ShipperHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303D15D6B986C15664D788CA /* ShipperHomeView.swift */; };
 		AEC8F23495626EAB5FF6BE3A /* ShipperTrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC715D552F329855E2F73555 /* ShipperTrackingView.swift */; };
 		B25ADADBB6DC9DD16DE0767F /* ProfileOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1179A2D7558E8F2749B6C453 /* ProfileOnboardingView.swift */; };
@@ -34,6 +38,7 @@
 		B6067166AF28B4727A3BBAC1 /* ServiceAreaOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422ED24BFB5E6D3AF98A4639 /* ServiceAreaOnboardingView.swift */; };
 		BC96B6AB643C09FF570090AC /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62AF806C9110046DEB31AC45 /* MockData.swift */; };
 		BFF99F8280573507843DCCA0 /* OnboardingCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F1225BC086F9365AA9A078 /* OnboardingCoordinatorView.swift */; };
+		C33980F7B33FE295CEEB75F0 /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AD2B166B6B5CCC574FA4E0 /* SafariView.swift */; };
 		C74DE3E8E897A332F0255102 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2AEE9A3C707F6CABE98DD2F /* LoginView.swift */; };
 		D96A96CA310B1DB04111E4D6 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B7CB93C111BB06D1560DE3 /* KeychainStore.swift */; };
 		DD2925467C89A7092A23A437 /* LoadDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4E88C459D58639C2FB7296 /* LoadDetailView.swift */; };
@@ -41,6 +46,8 @@
 		E768DE30A512B54F0BB1E841 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = F99B9CFF3BDD75314E7464EC /* Config.swift */; };
 		EBF4D598ABB45136FDCFEF4C /* HaulerProfileOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A454AB1A5C97C1F06BA5BB94 /* HaulerProfileOnboardingView.swift */; };
 		EC30C8D103F08F080B1B631A /* LoadsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 648B311BE33E94AD84B72D3B /* LoadsClient.swift */; };
+		F1CD8ADF9A95179868479345 /* PaymentMethodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A5CE667FEB713FE947C804 /* PaymentMethodView.swift */; };
+		F201F58B218A0E80A297F2F1 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 8FAB17D7D8D5CAACD9816C48 /* StripePaymentSheet */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +72,7 @@
 		422ED24BFB5E6D3AF98A4639 /* ServiceAreaOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceAreaOnboardingView.swift; sourceTree = "<group>"; };
 		4FCD3839478928EC109394AB /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		50B7CB93C111BB06D1560DE3 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		59A5CE667FEB713FE947C804 /* PaymentMethodView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentMethodView.swift; sourceTree = "<group>"; };
 		5B4E88C459D58639C2FB7296 /* LoadDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadDetailView.swift; sourceTree = "<group>"; };
 		5E8D642D0C1F0A676CD44EDC /* HaulHubTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HaulHubTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		62AF806C9110046DEB31AC45 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
@@ -73,17 +81,22 @@
 		69F1225BC086F9365AA9A078 /* OnboardingCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCoordinatorView.swift; sourceTree = "<group>"; };
 		6D1C8701795E2FF69406F018 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		713A41A51DAD4E9423D43E91 /* HHComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HHComponents.swift; sourceTree = "<group>"; };
+		71BE73BE37E26D13C63A4C70 /* PaymentsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentsClient.swift; sourceTree = "<group>"; };
 		7245A8594E29DEC2B5DA52AB /* AuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
 		767E4412CF8FF7873591F6A2 /* ActiveHaulView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveHaulView.swift; sourceTree = "<group>"; };
 		8FF59725C3B9916E4AFEB7BC /* AuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthClient.swift; sourceTree = "<group>"; };
+		A3AD2B166B6B5CCC574FA4E0 /* SafariView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariView.swift; sourceTree = "<group>"; };
 		A454AB1A5C97C1F06BA5BB94 /* HaulerProfileOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HaulerProfileOnboardingView.swift; sourceTree = "<group>"; };
 		A474141D1DCD1B446B3CACEB /* HaulHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HaulHubTests.swift; sourceTree = "<group>"; };
 		A71F8C969EBA0177CB46226B /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		AC715D552F329855E2F73555 /* ShipperTrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShipperTrackingView.swift; sourceTree = "<group>"; };
 		B2AEE9A3C707F6CABE98DD2F /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		B474A6C31FE0E6D0781A1032 /* SignupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignupView.swift; sourceTree = "<group>"; };
+		B718B44DAFE4EEAB823607BC /* PaymentModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentModelsTests.swift; sourceTree = "<group>"; };
+		C5D309F8B49F1F6C1594675D /* PaymentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentModels.swift; sourceTree = "<group>"; };
 		CB9DCB97146D9DD7735B8B02 /* RouteDistance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDistance.swift; sourceTree = "<group>"; };
 		CD03EE69F36E056E30E52A9A /* PostLoadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostLoadView.swift; sourceTree = "<group>"; };
+		D10FF47F748315EAA1646D9A /* PaymentStatusCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentStatusCard.swift; sourceTree = "<group>"; };
 		D1BE1ADEDDBCEB97ED62977B /* ShipperLoadDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShipperLoadDetailView.swift; sourceTree = "<group>"; };
 		DF5644AE713A8D9914C0EF6F /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		E55EAC03BD99B033FC96189B /* APIClientKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientKey.swift; sourceTree = "<group>"; };
@@ -91,6 +104,17 @@
 		F4232797704AD31EC0A15410 /* VehicleOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleOnboardingView.swift; sourceTree = "<group>"; };
 		F99B9CFF3BDD75314E7464EC /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AD999DF9E969B6B7EB96D0E9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F201F58B218A0E80A297F2F1 /* StripePaymentSheet in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		21C87D2153FB101DDDE2B6E3 /* App */ = {
@@ -118,6 +142,8 @@
 				65A16820FCFC18661C987AA3 /* HaulerHomeView.swift */,
 				5B4E88C459D58639C2FB7296 /* LoadDetailView.swift */,
 				A71F8C969EBA0177CB46226B /* MainTabView.swift */,
+				59A5CE667FEB713FE947C804 /* PaymentMethodView.swift */,
+				D10FF47F748315EAA1646D9A /* PaymentStatusCard.swift */,
 				CD03EE69F36E056E30E52A9A /* PostLoadView.swift */,
 				EAE1F5384F3E0977490E7B2C /* ProfileView.swift */,
 				303D15D6B986C15664D788CA /* ShipperHomeView.swift */,
@@ -165,6 +191,7 @@
 				37B603F3480D976C380756CF /* AuthModels.swift */,
 				1884551F88F35399A7029331 /* LoadModels.swift */,
 				62AF806C9110046DEB31AC45 /* MockData.swift */,
+				C5D309F8B49F1F6C1594675D /* PaymentModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -194,7 +221,9 @@
 				14FCFDA68C7A5E6A1CAE6C55 /* HHTheme.swift */,
 				50B7CB93C111BB06D1560DE3 /* KeychainStore.swift */,
 				648B311BE33E94AD84B72D3B /* LoadsClient.swift */,
+				71BE73BE37E26D13C63A4C70 /* PaymentsClient.swift */,
 				CB9DCB97146D9DD7735B8B02 /* RouteDistance.swift */,
+				A3AD2B166B6B5CCC574FA4E0 /* SafariView.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -203,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				A474141D1DCD1B446B3CACEB /* HaulHubTests.swift */,
+				B718B44DAFE4EEAB823607BC /* PaymentModelsTests.swift */,
 			);
 			path = HaulHubTests;
 			sourceTree = "<group>";
@@ -215,6 +245,7 @@
 			buildConfigurationList = 4D80BDCC6964809C4B1F90B8 /* Build configuration list for PBXNativeTarget "HaulHub" */;
 			buildPhases = (
 				222477325EF1399710BE4613 /* Sources */,
+				AD999DF9E969B6B7EB96D0E9 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -222,6 +253,7 @@
 			);
 			name = HaulHub;
 			packageProductDependencies = (
+				8FAB17D7D8D5CAACD9816C48 /* StripePaymentSheet */,
 			);
 			productName = HaulHub;
 			productReference = 3C4FCD142AFAE8BB9921E86E /* HaulHub.app */;
@@ -268,6 +300,9 @@
 			);
 			mainGroup = A1A10889DA2B9227A806BD61;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FAFB06B6A429264DCF502219 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 73640CCDC4B6CF08C01EFDDB /* Products */;
 			projectDirPath = "";
@@ -306,10 +341,15 @@
 				6E35B105006F05105351E7EC /* MainTabView.swift in Sources */,
 				BC96B6AB643C09FF570090AC /* MockData.swift in Sources */,
 				BFF99F8280573507843DCCA0 /* OnboardingCoordinatorView.swift in Sources */,
+				F1CD8ADF9A95179868479345 /* PaymentMethodView.swift in Sources */,
+				A70A4B923B471DE1AFBE22E4 /* PaymentModels.swift in Sources */,
+				58B0E86262E02703E3527877 /* PaymentStatusCard.swift in Sources */,
+				0A42CAA74DA5188F72EAD0A4 /* PaymentsClient.swift in Sources */,
 				B3C9AC9088D2F9749DE79E06 /* PostLoadView.swift in Sources */,
 				B25ADADBB6DC9DD16DE0767F /* ProfileOnboardingView.swift in Sources */,
 				466A6625A8DFEC4B8DB142DD /* ProfileView.swift in Sources */,
 				7156C55261D6CC187C905FF9 /* RouteDistance.swift in Sources */,
+				C33980F7B33FE295CEEB75F0 /* SafariView.swift in Sources */,
 				B6067166AF28B4727A3BBAC1 /* ServiceAreaOnboardingView.swift in Sources */,
 				AE33DA4FB095CDBF26115C6A /* ShipperHomeView.swift in Sources */,
 				31E1395D018B1A6DD8297B6D /* ShipperLoadDetailView.swift in Sources */,
@@ -325,6 +365,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0DAB0275C64D3240817A040E /* HaulHubTests.swift in Sources */,
+				2001B89BE8576C5D2D972044 /* PaymentModelsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -579,6 +620,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FAFB06B6A429264DCF502219 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 24.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8FAB17D7D8D5CAACD9816C48 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FAFB06B6A429264DCF502219 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1F6AD388AC59EAD93AC1E0D1 /* Project object */;
 }

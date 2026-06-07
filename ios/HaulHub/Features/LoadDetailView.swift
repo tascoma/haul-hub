@@ -13,8 +13,10 @@ struct LoadDetailView: View {
     @State private var showingClaimSheet = false
     @State private var isClaiming = false
     @State private var error: String?
+    @State private var payment: Payment?
 
     private var client: LoadsClient { LoadsClient(api: apiClient) }
+    private var payments: PaymentsClient { PaymentsClient(api: apiClient) }
 
     init(load: APILoad, onClaimed: (() -> Void)? = nil) {
         self.load      = load
@@ -45,6 +47,9 @@ struct LoadDetailView: View {
                 routeCard
                 statsRow
                 payoutHero
+                if let payment {
+                    PaymentStatusCard(payment: payment, emphasizePayout: true)
+                }
                 if let error {
                     HHErrorBanner(message: error)
                 }
@@ -52,6 +57,7 @@ struct LoadDetailView: View {
             .padding(.horizontal, 18)
             .padding(.bottom, canClaim ? 120 : 32)
         }
+        .task { payment = try? await payments.payment(loadId: current.id) }
         .background(HHColor.ink50)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if canClaim { stickyCTA }

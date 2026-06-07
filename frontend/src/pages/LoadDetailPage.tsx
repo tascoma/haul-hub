@@ -7,6 +7,8 @@ import { formatDate, formatPrice, formatStatus } from "../lib/format";
 import { RouteMap } from "../components/RouteMap";
 import { coordOf } from "../lib/maps";
 
+const PLATFORM_FEE_BPS = Number(import.meta.env.VITE_PLATFORM_FEE_BPS ?? 1000);
+
 interface ActionConfig {
   label: string;
   path: string;
@@ -143,7 +145,7 @@ export function LoadDetailPage() {
 
   const haulerPayout = payment
     ? formatPrice(payment.hauler_payout_cents)
-    : formatPrice(Math.round(load.calculated_price_cents * 0.85));
+    : formatPrice(Math.round(load.calculated_price_cents * (1 - PLATFORM_FEE_BPS / 10000)));
 
   return (
     <div>

@@ -9,6 +9,21 @@ class ConnectOnboardingResponse(BaseModel):
     url: str
 
 
+class SetupIntentResponse(BaseModel):
+    client_secret: str
+
+
+class SavePaymentMethodRequest(BaseModel):
+    payment_method_id: str
+
+
+class PaymentMethodInfo(BaseModel):
+    brand: str
+    last4: str
+    exp_month: int
+    exp_year: int
+
+
 class PaymentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
