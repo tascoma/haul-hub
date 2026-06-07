@@ -265,6 +265,12 @@ async def authorize_payment_for_load(db: AsyncSession, load: Load, hauler: User)
             payment_method=pm_id,
             payment_method_types=["card"],
             confirm=True,
+            # The shipper isn't in a checkout flow when the hauler accepts — this
+            # is a merchant-initiated charge against their saved card. off_session
+            # tells Stripe not to use a redirect (so no return_url is required);
+            # a card that needs SCA fails with authentication_required, which the
+            # except below records as a failed payment.
+            off_session=True,
             capture_method="manual",
             application_fee_amount=payment.platform_fee_cents,
             transfer_data={"destination": hauler_connect_id},
