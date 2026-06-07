@@ -40,7 +40,10 @@ async def check_results(client: httpx.AsyncClient, cfg: SimConfig,
     checks: list[Check] = []
     bps = _platform_fee_bps()
     for r in results:
-        checks.extend(await _check_one(client, cfg, r, actors_by_email, bps))
+        try:
+            checks.extend(await _check_one(client, cfg, r, actors_by_email, bps))
+        except Exception as exc:  # one load's blip shouldn't abort the whole report
+            checks.append(Check(r.title, "check_error", False, repr(exc)))
     checks.extend(await _reconcile(cfg, results))
     return checks
 

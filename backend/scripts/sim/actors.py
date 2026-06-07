@@ -8,6 +8,7 @@ DB — there is no API to inject an already-onboarded account (see stripe_setup)
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -17,6 +18,34 @@ import httpx
 from . import config
 
 logger = logging.getLogger("sim.actors")
+
+# Transient connection blips against a local server / pooler (DNS hiccups, dropped
+# reads under a concurrency burst) — retried rather than crashing the run.
+_TRANSIENT = (
+    httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadError, httpx.ReadTimeout,
+    httpx.WriteError, httpx.RemoteProtocolError, httpx.PoolTimeout,
+)
+_RETRIES = 4
+
+
+async def _send(client: httpx.AsyncClient, method: str, url: str, *,
+                idempotent: bool = False, **kwargs) -> httpx.Response:
+    """Issue a request, retrying transient transport errors (always) and 5xx
+    (only for idempotent calls, so non-idempotent POSTs aren't double-applied).
+    """
+    last_exc: Exception | None = None
+    for attempt in range(_RETRIES):
+        try:
+            resp = await client.request(method, url, **kwargs)
+        except _TRANSIENT as exc:
+            last_exc = exc
+            await asyncio.sleep(0.4 * (attempt + 1))
+            continue
+        if idempotent and resp.status_code >= 500 and attempt < _RETRIES - 1:
+            await asyncio.sleep(0.4 * (attempt + 1))
+            continue
+        return resp
+    raise last_exc  # type: ignore[misc]
 
 
 @dataclass
@@ -56,8 +85,8 @@ async def _ok(resp: httpx.Response, method: str, path: str) -> dict:
 
 async def signup(client: httpx.AsyncClient, email: str, roles: list[str]) -> Actor:
     await _ok(
-        await client.post(
-            "/api/auth/signup",
+        await _send(
+            client, "POST", "/api/auth/signup", idempotent=True,
             json={"email": email, "password": config.PASSWORD,
                   "full_name": email.split("@")[0], "roles": roles},
         ),
@@ -65,14 +94,19 @@ async def signup(client: httpx.AsyncClient, email: str, roles: list[str]) -> Act
     )
     # Log in to obtain a token, then read identity.
     token_body = await _ok(
-        await client.post("/api/auth/login", json={"email": email, "password": config.PASSWORD}),
+        await _send(client, "POST", "/api/auth/login", idempotent=True,
+                    json={"email": email, "password": config.PASSWORD}),
         "POST", "/api/auth/login",
     )
     headers = {"Authorization": f"Bearer {token_body['access_token']}"}
-    me = await _ok(await client.get("/api/me", headers=headers), "GET", "/api/me")
+    me = await _ok(
+        await _send(client, "GET", "/api/me", idempotent=True, headers=headers),
+        "GET", "/api/me",
+    )
     # A non-empty full_name + phone makes the profile "complete" for onboarding checks.
     await _ok(
-        await client.patch("/api/me", headers=headers, json={"phone": "555-0100"}),
+        await _send(client, "PATCH", "/api/me", idempotent=True,
+                    headers=headers, json={"phone": "555-0100"}),
         "PATCH", "/api/me",
     )
     return Actor(user_id=me["id"], email=email, headers=headers)
@@ -80,9 +114,9 @@ async def signup(client: httpx.AsyncClient, email: str, roles: list[str]) -> Act
 
 async def save_card(client: httpx.AsyncClient, actor: Actor, payment_method_id: str) -> None:
     await _ok(
-        await client.post(
-            "/api/me/payment-method", headers=actor.headers,
-            json={"payment_method_id": payment_method_id},
+        await _send(
+            client, "POST", "/api/me/payment-method", idempotent=True,
+            headers=actor.headers, json={"payment_method_id": payment_method_id},
         ),
         "POST", "/api/me/payment-method",
     )
@@ -92,7 +126,7 @@ async def save_card(client: httpx.AsyncClient, actor: Actor, payment_method_id: 
 async def connect_onboarding_url(client: httpx.AsyncClient, actor: Actor) -> str:
     """Exercise the real onboarding endpoint (returns a hosted-onboarding URL)."""
     body = await _ok(
-        await client.post("/api/me/connect-onboarding", headers=actor.headers),
+        await _send(client, "POST", "/api/me/connect-onboarding", headers=actor.headers),
         "POST", "/api/me/connect-onboarding",
     )
     return body["url"]
@@ -143,8 +177,8 @@ def _load_payload(title: str, pickup: dict, dropoff: dict) -> dict:
 async def post_load(client: httpx.AsyncClient, shipper: Actor, title: str,
                     pickup: dict, dropoff: dict) -> str:
     body = await _ok(
-        await client.post(
-            "/api/loads", headers=shipper.headers,
+        await _send(
+            client, "POST", "/api/loads", headers=shipper.headers,
             json=_load_payload(title, pickup, dropoff),
         ),
         "POST", "/api/loads",
@@ -157,7 +191,7 @@ async def post_load(client: httpx.AsyncClient, shipper: Actor, title: str,
 
 async def _post_transition(client: httpx.AsyncClient, actor: Actor, load_id: str,
                            action: str) -> tuple[int, dict]:
-    resp = await client.post(f"/api/loads/{load_id}/{action}", headers=actor.headers)
+    resp = await _send(client, "POST", f"/api/loads/{load_id}/{action}", headers=actor.headers)
     return resp.status_code, _safe_json(resp)
 
 
@@ -169,17 +203,20 @@ async def deliver(client, actor, load_id): return await _post_transition(client,
 
 async def cancel(client: httpx.AsyncClient, actor: Actor, load_id: str,
                  reason: str = "sim cancel") -> tuple[int, dict]:
-    resp = await client.post(
-        f"/api/loads/{load_id}/cancel", headers=actor.headers, json={"reason": reason}
+    resp = await _send(
+        client, "POST", f"/api/loads/{load_id}/cancel",
+        headers=actor.headers, json={"reason": reason},
     )
     return resp.status_code, _safe_json(resp)
 
 
 async def get_payment(client: httpx.AsyncClient, actor: Actor, load_id: str) -> tuple[int, dict]:
-    resp = await client.get(f"/api/loads/{load_id}/payment", headers=actor.headers)
+    resp = await _send(client, "GET", f"/api/loads/{load_id}/payment",
+                       idempotent=True, headers=actor.headers)
     return resp.status_code, _safe_json(resp)
 
 
 async def get_events(client: httpx.AsyncClient, actor: Actor, load_id: str) -> list[dict]:
-    resp = await client.get(f"/api/loads/{load_id}/events", headers=actor.headers)
+    resp = await _send(client, "GET", f"/api/loads/{load_id}/events",
+                       idempotent=True, headers=actor.headers)
     return resp.json() if resp.status_code < 400 and resp.content else []
