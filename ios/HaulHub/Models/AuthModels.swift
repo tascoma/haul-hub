@@ -77,12 +77,17 @@ enum OnboardingStep: String, Codable {
     case haulerProfile = "hauler_profile"
     case haulerVehicle = "hauler_vehicle"
     case haulerServiceArea = "hauler_service_area"
+    case haulerDocuments = "hauler_documents"
+    case haulerVerification = "hauler_verification"
     case done
 }
 
 struct OnboardingChecks: Decodable {
     let hasVehicle: Bool
     let hasServiceArea: Bool
+    let hasInsurance: Bool
+    let hasDriversLicense: Bool
+    let hasBackgroundCheck: Bool
 }
 
 struct OnboardingStatus: Decodable {

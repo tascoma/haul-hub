@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.databases import get_db
+from app.models.identity_verification import IdentityVerification, IdentityVerificationKind, IdentityVerificationStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.user import UserProfile
 from app.models.webhook_event import ProcessedWebhookEvent
@@ -198,6 +199,48 @@ async def _handle_transfer_failed(db: AsyncSession, event: dict) -> None:
     )
 
 
+async def _handle_identity_verified(db: AsyncSession, event: dict) -> None:
+    session = event["data"]["object"]
+    session_id = session.get("id")
+    if session_id is None:
+        return
+    verification = await db.scalar(
+        select(IdentityVerification).where(
+            IdentityVerification.provider == "stripe",
+            IdentityVerification.provider_reference == session_id,
+            IdentityVerification.kind == IdentityVerificationKind.stripe_identity,
+        )
+    )
+    if verification is None:
+        logger.warning("identity.verification_session.verified for unknown session %s", session_id)
+        return
+    verification.status = IdentityVerificationStatus.approved
+    verification.reviewed_at = datetime.now(UTC)
+    logger.info("identity verified: user=%s session=%s", verification.user_id, session_id)
+
+
+async def _handle_identity_requires_input(db: AsyncSession, event: dict) -> None:
+    session = event["data"]["object"]
+    session_id = session.get("id")
+    if session_id is None:
+        return
+    verification = await db.scalar(
+        select(IdentityVerification).where(
+            IdentityVerification.provider == "stripe",
+            IdentityVerification.provider_reference == session_id,
+            IdentityVerification.kind == IdentityVerificationKind.stripe_identity,
+        )
+    )
+    if verification is None:
+        logger.warning("identity.verification_session.requires_input for unknown session %s", session_id)
+        return
+    last_error = (session.get("last_error") or {}).get("reason", "Verification could not be completed")
+    verification.status = IdentityVerificationStatus.rejected
+    verification.review_notes = last_error
+    verification.reviewed_at = datetime.now(UTC)
+    logger.info("identity requires input: user=%s session=%s reason=%s", verification.user_id, session_id, last_error)
+
+
 _HANDLERS = {
     "account.updated": _handle_account_updated,
     "account.application.deauthorized": _handle_account_deauthorized,
@@ -207,4 +250,6 @@ _HANDLERS = {
     "charge.dispute.created": _handle_charge_dispute_created,
     "transfer.created": _handle_transfer_created,
     "transfer.failed": _handle_transfer_failed,
+    "identity.verification_session.verified": _handle_identity_verified,
+    "identity.verification_session.requires_input": _handle_identity_requires_input,
 }

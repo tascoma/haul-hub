@@ -26,7 +26,7 @@ async function request<T>(
   init?: RequestInit & { skipAuth?: boolean },
 ): Promise<T> {
   const headers = new Headers(init?.headers);
-  if (init?.body !== undefined && !headers.has("Content-Type")) {
+  if (init?.body !== undefined && !headers.has("Content-Type") && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (!init?.skipAuth) {
@@ -67,4 +67,7 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: (path: string) => request<void>(path, { method: "DELETE" }),
+  // Multipart upload — browser sets Content-Type with boundary automatically.
+  upload: <T>(path: string, formData: FormData) =>
+    request<T>(path, { method: "POST", body: formData }),
 };

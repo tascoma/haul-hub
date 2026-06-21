@@ -7,6 +7,8 @@ const ONBOARDING_PATHS = {
   hauler_profile: "/onboarding/hauler/profile",
   hauler_vehicle: "/onboarding/hauler/vehicle",
   hauler_service_area: "/onboarding/hauler/service-area",
+  hauler_documents: "/onboarding/hauler/documents",
+  hauler_verification: "/onboarding/hauler/verification",
 } as const;
 
 export function OnboardingRouterPage() {
