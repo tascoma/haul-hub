@@ -195,3 +195,42 @@ async def test_stripe_webhook_without_secret_returns_503(client: AsyncClient) ->
 async def test_stripe_webhook_without_signature_returns_400(client: AsyncClient) -> None:
     r = await client.post("/api/webhooks/stripe", content=b"{}")
     assert r.status_code == 400, r.text
+
+
+async def test_payment_intent_failed_marks_payment_failed(
+    client: AsyncClient, actors: dict
+) -> None:
+    from app.routes.webhooks import _handle_payment_intent_failed
+
+    shipper_h, hauler_h = actors["shipper"], actors["hauler"]
+    load_id = (
+        await client.post("/api/loads", json=_load_payload(), headers=shipper_h)
+    ).json()["id"]
+    await client.post(f"/api/loads/{load_id}/accept", headers=hauler_h)
+
+    # Attach a fake PaymentIntent ID so the handler can find the row.
+    async with AsyncSessionLocal() as db:
+        payment = await db.scalar(select(Payment).where(Payment.load_id == load_id))
+        assert payment is not None
+        payment.stripe_payment_intent_id = "pi_test_failed_123"
+        await db.commit()
+
+    fake_event = {
+        "id": "evt_failed_1",
+        "type": "payment_intent.payment_failed",
+        "data": {
+            "object": {
+                "id": "pi_test_failed_123",
+                "last_payment_error": {"message": "Your card has insufficient funds."},
+            }
+        },
+    }
+    async with AsyncSessionLocal() as db:
+        await _handle_payment_intent_failed(db, fake_event)
+        await db.commit()
+
+    payment = await _payment_for(load_id)
+    assert payment is not None
+    assert payment.status.value == "failed"
+    assert payment.error_message is not None
+    assert "insufficient funds" in payment.error_message

@@ -56,11 +56,18 @@ const ICONS = {
       <circle cx="17" cy="17.5" r="1.5" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   ),
+  card: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M2 10h20" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  ),
 };
 
 const SHIPPER_NAV: NavItem[] = [
   { to: "/shipper/dashboard", label: "Dashboard", icon: ICONS.home },
   { to: "/shipper/loads/new", label: "Post a load", icon: ICONS.plus },
+  { to: "/payment-method", label: "Payment", icon: ICONS.card },
   { to: "/profile", label: "Profile", icon: ICONS.user },
 ];
 

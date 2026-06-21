@@ -7,6 +7,8 @@ OnboardingStep = Literal[
     "hauler_profile",
     "hauler_vehicle",
     "hauler_service_area",
+    "hauler_documents",
+    "hauler_verification",
     "done",
 ]
 
@@ -14,6 +16,9 @@ OnboardingStep = Literal[
 class OnboardingChecks(BaseModel):
     has_vehicle: bool
     has_service_area: bool
+    has_insurance: bool
+    has_drivers_license: bool
+    has_background_check: bool
 
 
 class OnboardingStatus(BaseModel):

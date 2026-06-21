@@ -136,8 +136,48 @@ async def test_onboarding_status_hauler_flow(client: AsyncClient) -> None:
     assert r.status_code == 200, r.text
 
     status = (await client.get("/api/me/onboarding-status", headers=auth)).json()
+    assert status["next_step"] == "hauler_documents"
+    assert status["checks"]["has_insurance"] is False
+    assert status["checks"]["has_drivers_license"] is False
+    assert status["hauler_ready"] is False
+
+    # Upload an insurance certificate
+    fake_file = b"fake-pdf-content"
+    r = await client.post(
+        "/api/me/documents/upload",
+        files={"file": ("insurance.pdf", fake_file, "application/pdf")},
+        data={"kind": "insurance_certificate", "carrier_name": "ACME Insurance", "policy_number": "POL-001"},
+        headers=auth,
+    )
+    assert r.status_code == 201, r.text
+
+    # Upload a driver's license
+    r = await client.post(
+        "/api/me/verifications/upload",
+        files={"file": ("license.jpg", fake_file, "image/jpeg")},
+        data={"kind": "drivers_license"},
+        headers=auth,
+    )
+    assert r.status_code == 201, r.text
+
+    status = (await client.get("/api/me/onboarding-status", headers=auth)).json()
+    assert status["next_step"] == "hauler_verification"
+    assert status["checks"]["has_insurance"] is True
+    assert status["checks"]["has_drivers_license"] is True
+    assert status["checks"]["has_background_check"] is False
+
+    # Create a Stripe Identity verification record (pending) via the JSON endpoint
+    r = await client.post(
+        "/api/me/verifications",
+        json={"kind": "stripe_identity", "provider": "stripe", "provider_reference": "vs_test_123"},
+        headers=auth,
+    )
+    assert r.status_code == 201, r.text
+
+    status = (await client.get("/api/me/onboarding-status", headers=auth)).json()
     assert status["next_step"] == "done"
     assert status["hauler_ready"] is True
+    assert status["checks"]["has_background_check"] is True
 
 
 async def test_onboarding_status_dual_role(client: AsyncClient) -> None:

@@ -80,7 +80,7 @@ export function PostLoadPage() {
     };
     try {
       const load = await api.post<Load>("/loads", body);
-      navigate(`/loads/${load.id}`);
+      navigate(`/shipper/loads/${load.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to post load");
     } finally {

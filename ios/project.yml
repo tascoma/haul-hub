@@ -6,6 +6,11 @@ options:
   developmentLanguage: en
   createIntermediateGroups: true
 
+packages:
+  stripe-ios:
+    url: https://github.com/stripe/stripe-ios
+    from: "24.0.0"
+
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -21,6 +26,9 @@ targets:
       - path: HaulHub
         excludes:
           - "**/.gitkeep"
+    dependencies:
+      - package: stripe-ios
+        product: StripePaymentSheet
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.haulhub.ios

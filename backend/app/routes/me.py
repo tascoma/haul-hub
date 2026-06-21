@@ -1,6 +1,8 @@
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+import stripe
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +32,12 @@ from app.schemas.identity_verification import (
 )
 from app.schemas.load import LoadRead
 from app.schemas.onboarding import OnboardingChecks, OnboardingStatus, OnboardingStep
-from app.schemas.payment import ConnectOnboardingResponse
+from app.schemas.payment import (
+    ConnectOnboardingResponse,
+    PaymentMethodInfo,
+    SavePaymentMethodRequest,
+    SetupIntentResponse,
+)
 from app.schemas.service_area import ServiceAreaCreate, ServiceAreaRead
 from app.schemas.terms_acceptance import TermsAcceptanceCreate, TermsAcceptanceRead
 from app.schemas.auth import ChangePasswordRequest
@@ -42,9 +49,15 @@ from app.schemas.user import (
     UserProfileUpdate,
 )
 from app.schemas.vehicle import VehicleCreate, VehicleRead, VehicleUpdate
+from app.core.config import settings
+from app.models.hauler_document import HaulerDocumentKind
+from app.models.identity_verification import IdentityVerificationKind, IdentityVerificationStatus
 from app.services import payments
 from app.services.auth import hash_password, verify_password
 from app.services.hauler import ensure_hauler_profile
+from app.services.storage import upload_file
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -109,6 +122,10 @@ async def onboarding_status(
 
     has_vehicle = False
     has_service_area = False
+    has_insurance = False
+    has_drivers_license = False
+    has_background_check = False
+
     if user.profile.hauler_enabled:
         vehicle_count = await db.scalar(
             select(func.count())
@@ -126,12 +143,36 @@ async def onboarding_status(
             and hp.service_radius_miles is not None
         )
 
+        docs = await db.scalars(
+            select(HaulerDocument).where(HaulerDocument.hauler_user_id == user.id)
+        )
+        for doc in docs:
+            if doc.kind == HaulerDocumentKind.insurance_certificate and (
+                doc.expires_on is None or doc.expires_on >= date.today()
+            ):
+                has_insurance = True
+
+        verifications = await db.scalars(
+            select(IdentityVerification).where(IdentityVerification.user_id == user.id)
+        )
+        for v in verifications:
+            if v.kind == IdentityVerificationKind.drivers_license:
+                has_drivers_license = True
+            if v.kind == IdentityVerificationKind.stripe_identity and v.status in (
+                IdentityVerificationStatus.pending,
+                IdentityVerificationStatus.approved,
+            ):
+                has_background_check = True
+
     customer_ready = user.profile.shipper_enabled and profile_complete
     hauler_ready = (
         user.profile.hauler_enabled
         and profile_complete
         and has_vehicle
         and has_service_area
+        and has_insurance
+        and has_drivers_license
+        and has_background_check
     )
 
     next_step: OnboardingStep
@@ -143,6 +184,10 @@ async def onboarding_status(
         next_step = "hauler_vehicle"
     elif user.profile.hauler_enabled and not has_service_area:
         next_step = "hauler_service_area"
+    elif user.profile.hauler_enabled and (not has_insurance or not has_drivers_license):
+        next_step = "hauler_documents"
+    elif user.profile.hauler_enabled and not has_background_check:
+        next_step = "hauler_verification"
     else:
         next_step = "done"
 
@@ -154,6 +199,9 @@ async def onboarding_status(
         checks=OnboardingChecks(
             has_vehicle=has_vehicle,
             has_service_area=has_service_area,
+            has_insurance=has_insurance,
+            has_drivers_license=has_drivers_license,
+            has_background_check=has_background_check,
         ),
     )
 
@@ -221,6 +269,45 @@ async def connect_onboarding(
     url = await payments.create_connect_onboarding_link(db, user)
     await db.commit()
     return ConnectOnboardingResponse(url=url)
+
+
+# ─── Payment method (shipper card) ─────────────────────────────────────────
+
+@router.post("/payment-method/setup-intent", response_model=SetupIntentResponse)
+async def create_setup_intent(
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SetupIntentResponse:
+    """Return a SetupIntent client_secret so the frontend can tokenize a card."""
+    client_secret = await payments.create_setup_intent(db, user)
+    await db.commit()
+    return SetupIntentResponse(client_secret=client_secret)
+
+
+@router.post("/payment-method", response_model=PaymentMethodInfo)
+async def save_payment_method(
+    payload: SavePaymentMethodRequest,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PaymentMethodInfo:
+    """Attach a confirmed PaymentMethod to the shipper's Customer and set it as default."""
+    card = await payments.save_default_payment_method(db, user, payload.payment_method_id)
+    await db.commit()
+    return PaymentMethodInfo(**card)
+
+
+@router.get("/payment-method", response_model=PaymentMethodInfo)
+async def get_payment_method(
+    user: User = Depends(current_user),
+) -> PaymentMethodInfo:
+    """Return the shipper's saved card info, or 404 if none saved."""
+    card = await payments.get_default_payment_method(user)
+    if card is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No payment method saved",
+        )
+    return PaymentMethodInfo(**card)
 
 
 # ─── Vehicles ──────────────────────────────────────────────────────────────
@@ -560,3 +647,124 @@ async def create_service_area(
     await db.commit()
     await db.refresh(area)
     return area
+
+
+# ─── File upload helpers ───────────────────────────────────────────────────
+
+@router.post(
+    "/documents/upload",
+    response_model=HaulerDocumentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_document(
+    file: UploadFile = File(...),
+    kind: HaulerDocumentKind = Form(...),
+    vehicle_id: str | None = Form(default=None),
+    policy_number: str | None = Form(default=None),
+    carrier_name: str | None = Form(default=None),
+    coverage_amount_cents: int | None = Form(default=None),
+    effective_on: date | None = Form(default=None),
+    expires_on: date | None = Form(default=None),
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> HaulerDocument:
+    if not user.profile.hauler_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hauler profile not enabled")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Empty file")
+    document_url = upload_file(bucket="hauler-docs", data=data, filename=file.filename or "document", folder=user.id)
+    doc = HaulerDocument(
+        hauler_user_id=user.id,
+        kind=kind,
+        document_url=document_url,
+        vehicle_id=vehicle_id,
+        policy_number=policy_number,
+        carrier_name=carrier_name,
+        coverage_amount_cents=coverage_amount_cents,
+        effective_on=effective_on,
+        expires_on=expires_on,
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+    return doc
+
+
+@router.post(
+    "/verifications/upload",
+    response_model=IdentityVerificationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_verification(
+    file: UploadFile = File(...),
+    kind: IdentityVerificationKind = Form(...),
+    issuing_country: str | None = Form(default=None),
+    issuing_state: str | None = Form(default=None),
+    expires_on: date | None = Form(default=None),
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> IdentityVerification:
+    if not user.profile.hauler_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hauler profile not enabled")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Empty file")
+    document_url = upload_file(bucket="hauler-verifications", data=data, filename=file.filename or "document", folder=user.id)
+    verification = IdentityVerification(
+        user_id=user.id,
+        kind=kind,
+        status=IdentityVerificationStatus.pending,
+        document_url=document_url,
+        issuing_country=issuing_country,
+        issuing_state=issuing_state,
+        expires_on=expires_on,
+        submitted_at=datetime.now(UTC),
+    )
+    db.add(verification)
+    await db.commit()
+    await db.refresh(verification)
+    return verification
+
+
+@router.post("/stripe-identity-session")
+async def create_stripe_identity_session(
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    if not user.profile.hauler_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hauler profile not enabled")
+    if settings.stripe_secret_key is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe not configured")
+
+    stripe.api_key = settings.stripe_secret_key
+    session = stripe.identity.VerificationSession.create(
+        type="document",
+        metadata={"user_id": str(user.id)},
+        options={"document": {"require_matching_selfie": True}},
+    )
+
+    existing = await db.scalar(
+        select(IdentityVerification).where(
+            IdentityVerification.user_id == user.id,
+            IdentityVerification.kind == IdentityVerificationKind.stripe_identity,
+            IdentityVerification.status == IdentityVerificationStatus.pending,
+        )
+    )
+    if existing is None:
+        verification = IdentityVerification(
+            user_id=user.id,
+            kind=IdentityVerificationKind.stripe_identity,
+            status=IdentityVerificationStatus.pending,
+            provider="stripe",
+            provider_reference=session.id,
+            submitted_at=datetime.now(UTC),
+        )
+        db.add(verification)
+        await db.commit()
+    else:
+        existing.provider_reference = session.id
+        await db.commit()
+
+    logger.info("stripe identity session created: user=%s session=%s", user.id, session.id)
+    return {"client_secret": session.client_secret, "url": session.url}

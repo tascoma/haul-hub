@@ -24,6 +24,8 @@ struct OnboardingCoordinatorView: View {
         case .haulerProfile: HaulerProfileOnboardingView()
         case .haulerVehicle: VehicleOnboardingView()
         case .haulerServiceArea: ServiceAreaOnboardingView()
+        case .haulerDocuments: DocumentsOnboardingView()
+        case .haulerVerification: BackgroundCheckOnboardingView()
         case .done: ProgressView()  // Should not be reached; root will swap to ready.
         }
     }

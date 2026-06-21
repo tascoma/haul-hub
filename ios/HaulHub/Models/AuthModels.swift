@@ -34,6 +34,20 @@ struct UserProfile: Decodable {
     let shipperEnabled: Bool
     let haulerEnabled: Bool
     let marketingOptIn: Bool
+
+    // Stripe / billing (mirror backend UserProfileRead). Optional so older
+    // payloads decode cleanly.
+    let stripeCustomerId: String?
+    let stripeConnectAccountId: String?
+    let addressLine1: String?
+    let addressCity: String?
+    let addressState: String?
+    let addressZip: String?
+    let billingSameAsHome: Bool
+    let billingAddressLine1: String?
+    let billingAddressCity: String?
+    let billingAddressState: String?
+    let billingAddressZip: String?
 }
 
 struct Me: Decodable {
@@ -63,12 +77,17 @@ enum OnboardingStep: String, Codable {
     case haulerProfile = "hauler_profile"
     case haulerVehicle = "hauler_vehicle"
     case haulerServiceArea = "hauler_service_area"
+    case haulerDocuments = "hauler_documents"
+    case haulerVerification = "hauler_verification"
     case done
 }
 
 struct OnboardingChecks: Decodable {
     let hasVehicle: Bool
     let hasServiceArea: Bool
+    let hasInsurance: Bool
+    let hasDriversLicense: Bool
+    let hasBackgroundCheck: Bool
 }
 
 struct OnboardingStatus: Decodable {

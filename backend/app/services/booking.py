@@ -10,6 +10,7 @@ Every public function:
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking_event import BookingEvent, BookingEventType
@@ -59,6 +60,21 @@ async def accept_load(db: AsyncSession, load: Load, hauler: User) -> Load:
     _require_hauler_role(hauler)
     if load.shipper_id == hauler.id:
         raise _forbidden("You cannot accept your own load")
+
+    # Lock the load row for the rest of this transaction. Two haulers accepting at
+    # the same instant would otherwise both read 'posted', both proceed, and both
+    # get assigned — creating a second Payment row. The second accept blocks on the
+    # lock here, then (populate_existing refreshes the in-memory row) sees the
+    # status the winner committed and is rejected below.
+    load = (
+        await db.execute(
+            select(Load)
+            .where(Load.id == load.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+
     if load.status != LoadStatus.posted:
         raise _conflict(f"Load is in status '{load.status.value}', expected 'posted'")
 
@@ -66,7 +82,7 @@ async def accept_load(db: AsyncSession, load: Load, hauler: User) -> Load:
     load.hauler_id = hauler.id
     load.accepted_at = datetime.now(UTC)
     await _log_event(db, load, hauler, BookingEventType.accepted)
-    await payments.authorize_payment_for_load(db, load)
+    await payments.authorize_payment_for_load(db, load, hauler)
     return load
 
 
