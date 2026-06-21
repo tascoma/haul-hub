@@ -3,6 +3,12 @@
 # ─── Stage 1: build the React frontend ─────────────────────────────────────
 FROM node:20-alpine AS frontend-build
 WORKDIR /frontend
+
+# Render forwards service env vars matching an ARG name into the build — Vite
+# inlines VITE_* vars at build time, so it must be set here, not at runtime.
+ARG VITE_GOOGLE_MAPS_API_KEY
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
+
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
