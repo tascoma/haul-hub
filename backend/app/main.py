@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,14 +15,26 @@ from app.databases import engine
 from app.services.storage import UPLOAD_ROOT
 
 FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
 logger = logging.getLogger(__name__)
+
+
+def _run_migrations() -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    command.upgrade(Config(str(ALEMBIC_INI)), "head")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     logger.info("Starting up (env=%s)", settings.app_env)
+    # Render's free tier doesn't support preDeployCommand, so migrations run
+    # here instead. alembic upgrade is idempotent; to_thread keeps the sync
+    # alembic call off the event loop.
+    await asyncio.to_thread(_run_migrations)
     yield
     logger.info("Shutting down")
     await engine.dispose()

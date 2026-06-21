@@ -5,7 +5,6 @@ services:
     plan: free
     branch: main
     healthCheckPath: /health
-    preDeployCommand: cd backend && uv run alembic upgrade head
     envVars:
       - key: APP_ENV
         value: production
@@ -46,7 +45,6 @@ services:
     plan: free
     branch: dev
     healthCheckPath: /health
-    preDeployCommand: cd backend && uv run alembic upgrade head
     envVars:
       - key: APP_ENV
         value: staging
