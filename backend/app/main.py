@@ -40,6 +40,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health", include_in_schema=False)
+async def health_check() -> dict:
+    return {"status": "ok"}
+
+
 from app.routes import auth as auth_routes
 from app.routes import loads as loads_routes
 from app.routes import me as me_routes

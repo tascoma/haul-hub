@@ -1,0 +1,82 @@
+services:
+  - type: web
+    name: haul-hub-prod
+    env: docker
+    plan: free
+    branch: main
+    healthCheckPath: /health
+    preDeployCommand: cd backend && uv run alembic upgrade head
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: uploads
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CONNECT_REFRESH_URL
+        sync: false
+      - key: STRIPE_CONNECT_RETURN_URL
+        sync: false
+      - key: PLATFORM_FEE_BPS
+        value: "1000"
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: web
+    name: haul-hub-stage
+    env: docker
+    plan: free
+    branch: dev
+    healthCheckPath: /health
+    preDeployCommand: cd backend && uv run alembic upgrade head
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: uploads
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CONNECT_REFRESH_URL
+        sync: false
+      - key: STRIPE_CONNECT_RETURN_URL
+        sync: false
+      - key: PLATFORM_FEE_BPS
+        value: "1000"
+      - key: LOG_LEVEL
+        value: INFO
